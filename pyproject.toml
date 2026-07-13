@@ -1,0 +1,51 @@
+[project]
+name = "egsd"
+version = "1.0.0"
+description = "e-GSD — Web platform for strategic decision support and B&R project evaluation for a gas DSO (validated core)"
+requires-python = ">=3.11"
+# Pinned versions (deterministic results — see docs/adr/0001-determinism-and-licensing.md)
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.30.1",
+    "pydantic==2.7.4",
+    "pydantic-settings==2.3.4",
+    "SQLAlchemy==2.0.31",
+    "alembic==1.13.2",
+    "CoolProp==8.0.0",
+    "scipy==1.13.1",
+    "numpy==1.26.4",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]==3.2.1"]
+dev = [
+    "pytest==8.2.2",
+    "httpx==0.27.0",
+    "ruff==0.5.0",
+    "cyclonedx-bom==4.5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+log_cli = true
+log_cli_level = "INFO"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI uses `Depends(...)` in argument defaults by design.
+# UP042: keep the explicit `(str, Enum)` pattern for broad serialization compatibility.
+ignore = ["B008", "UP042"]
