@@ -22,6 +22,9 @@ class StatePoint:
     entropy_kj_kgk: float
     joule_thomson_k_mpa: float
     speed_of_sound_m_s: float
+    # Transport properties may be unavailable for some mixtures (None + warning).
+    viscosity_pa_s: float | None = None
+    thermal_conductivity_w_mk: float | None = None
 
 
 @dataclass(frozen=True)

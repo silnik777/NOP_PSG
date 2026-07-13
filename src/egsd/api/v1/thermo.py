@@ -5,16 +5,15 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...application.compression_service import CompressionService
-from ...domain.gas.composition import CompositionError, GasComposition
+from ...domain.gas.composition import CompositionError
 from ...domain.thermo.compression import CompressionInput
 from ...infrastructure.gas_engine.errors import OutOfRangeError, StateSolveError
 from ...infrastructure.persistence.database import get_session
-from ...infrastructure.persistence.models import ReferenceGasProfileRow
 from ..units import mass_flow_to_kg_s, pressure_to_mpa, temperature_to_k
+from .common import resolve_composition
 from .schemas import CompressionRequest, CompressionResponse, Quantity
 
 logger = logging.getLogger("egsd.thermo")
@@ -23,25 +22,12 @@ router = APIRouter(prefix="/api/v1/thermo", tags=["thermo"])
 _service = CompressionService()
 
 
-def _resolve_composition(req: CompressionRequest, session: Session) -> GasComposition:
-    if req.gasComposition:
-        return GasComposition.from_mapping(req.gasComposition)
-    if req.compositionId:
-        row = session.scalar(
-            select(ReferenceGasProfileRow).where(ReferenceGasProfileRow.code == req.compositionId)
-        )
-        if row is None:
-            raise CompositionError(f"Unknown reference profile: {req.compositionId!r}")
-        return GasComposition.from_mapping(row.fractions)
-    raise CompositionError("Provide either gasComposition or compositionId.")
-
-
 @router.post("/compression", response_model=CompressionResponse)
 def compression(
     req: CompressionRequest, session: Session = Depends(get_session)
 ) -> CompressionResponse:
     try:
-        composition = _resolve_composition(req, session)
+        composition = resolve_composition(req.compositionId, req.gasComposition, session)
         data = CompressionInput(
             composition=composition,
             mass_flow_kg_s=mass_flow_to_kg_s(req.massFlowRate.value, req.massFlowRate.unit),

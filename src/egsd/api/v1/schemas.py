@@ -87,3 +87,38 @@ class CompressionResponse(BaseModel):
     validationStatus: str
     resultClass: str
     warnings: list[str] = []
+
+
+# ----- hydraulics: steady flow + linepack (Karta Modułu II) --------------------
+
+
+class HydraulicsRequest(BaseModel):
+    compositionId: str | None = None
+    gasComposition: dict[str, float] | None = None
+    diameter: Quantity  # internal diameter D
+    roughness: Quantity  # absolute roughness k
+    length: Quantity  # segment length L
+    inletPressure: Quantity
+    gasTemperature: Quantity
+    normalFlow: Quantity  # volumetric flow at normal conditions (Nm3/h)
+
+
+class HydraulicsResponse(BaseModel):
+    outletPressure: Quantity
+    pressureDrop: Quantity
+    massFlow: Quantity
+    averageVelocity: Quantity
+    reynoldsNumber: float
+    frictionFactor: float
+    flowRegime: str
+    machNumber: float
+    validationStatus: str
+    resultClass: str
+    warnings: list[str] = []
+
+
+class LinepackResponse(BaseModel):
+    linepackMass: Quantity
+    linepackNormalVolume: Quantity
+    averagePressure: Quantity
+    averageDensity: Quantity

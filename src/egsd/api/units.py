@@ -27,6 +27,25 @@ def temperature_to_k(value: float, unit: str) -> float:
     raise ValueError(f"Unsupported temperature unit {unit!r}")
 
 
+_LENGTH_TO_M: dict[str, float] = {"m": 1.0, "km": 1000.0, "cm": 0.01, "mm": 0.001}
+
+
+def length_to_m(value: float, unit: str) -> float:
+    """Length/diameter/roughness -> metres (accepts m, km, cm, mm)."""
+    try:
+        return value * _LENGTH_TO_M[unit]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported length unit {unit!r}") from exc
+
+
+def normal_flow_to_nm3_h(value: float, unit: str) -> float:
+    if unit in ("Nm3/h", "nm3/h", "m3/h"):
+        return value
+    if unit in ("Nm3/d", "m3/d"):
+        return value / 24.0
+    raise ValueError(f"Unsupported normal-flow unit {unit!r}")
+
+
 def mass_flow_to_kg_s(value: float, unit: str) -> float:
     if unit == "kg/s":
         return value

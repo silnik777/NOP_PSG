@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
-from .v1 import gas_engine, projects, thermo
+from .v1 import export, gas_engine, hydraulics, projects, thermo
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,4 +39,6 @@ def health() -> dict:
 
 app.include_router(gas_engine.router)
 app.include_router(thermo.router)
+app.include_router(hydraulics.router)
+app.include_router(export.router)
 app.include_router(projects.router)

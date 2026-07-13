@@ -42,7 +42,20 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `POST /api/v1/gas-engine/point-properties` — właściwości termodynamiczne punktu (§2.1 OPZ).
 - `POST /api/v1/gas-engine/combustion` — ciepło spalania i liczba Wobbego (ISO 6976).
 - `POST /api/v1/thermo/compression` — Moduł I: sprężanie (Karta Modułu I).
+- `POST /api/v1/hydraulics/steady-flow` — Moduł II: przepływ ustalony (Colebrook-White).
+- `POST /api/v1/hydraulics/linepack` — Moduł II: pojemność akumulacyjna (linepack).
+- `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
+  inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).
+
+### Moduł II — Hydraulika (Faza II / MVP)
+
+Pojedynczy odcinek, przepływ ustalony izotermiczny gazu ściśliwego: ogólne równanie
+przepływu z współczynnikiem oporów Darcy'ego z równania **Colebrooka-White'a**, iteracja
+po współczynniku ściśliwości Z (własności z `GasPropertyEngine`), liczba Reynoldsa i reżim
+przepływu, oraz **linepack** = A·L·ρ_śr. Baza odniesienia przepływu przypięta jawnie
+(warunki normalne 0 °C / 101,325 kPa — Nm³). Solver sieci pierścieniowej pozostaje poza
+zakresem tego przyrostu (uwaga weryfikacyjna #3).
 
 ## Ważna uwaga walidacyjna
 

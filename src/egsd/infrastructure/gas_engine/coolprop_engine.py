@@ -115,6 +115,8 @@ class CoolPropGasEngine:
             z = st.p() / (st.rhomolar() * _R * st.T())
             # Joule-Thomson: dT/dP at constant H, in K/Pa -> K/MPa.
             jt_k_per_pa = st.first_partial_deriv(CP.iT, CP.iP, CP.iHmass)
+            # Transport properties are not available for every mixture/range; degrade gracefully.
+            viscosity, conductivity = self._transport(st)
             return StatePoint(
                 pressure_mpa=pressure_mpa,
                 temperature_k=temperature_k,
@@ -127,11 +129,31 @@ class CoolPropGasEngine:
                 entropy_kj_kgk=st.smass() / 1000.0,
                 joule_thomson_k_mpa=jt_k_per_pa * 1e6,
                 speed_of_sound_m_s=st.speed_sound(),
+                viscosity_pa_s=viscosity,
+                thermal_conductivity_w_mk=conductivity,
             )
         except Exception as exc:  # noqa: BLE001 — surface CoolProp failures as engine errors
             raise StateSolveError(
                 f"Failed to resolve state at p={pressure_mpa} MPa, T={temperature_k} K: {exc}"
             ) from exc
+
+    @staticmethod
+    def _transport(st: AbstractState) -> tuple[float | None, float | None]:
+        """Return (dynamic viscosity Pa*s, thermal conductivity W/(m*K)) or None if unavailable.
+
+        CoolProp exposes transport properties for many mixtures; where a binary interaction is
+        missing it raises. The OPZ §3.2 alternative (Lee-Gonzalez-Eakin viscosity, TRAPP
+        conductivity) can replace this without changing the domain contract.
+        """
+        try:
+            viscosity = st.viscosity()
+        except Exception:  # noqa: BLE001
+            viscosity = None
+        try:
+            conductivity = st.conductivity()
+        except Exception:  # noqa: BLE001
+            conductivity = None
+        return viscosity, conductivity
 
     @staticmethod
     def _brent(f, low: float, high: float, what: str) -> float:
