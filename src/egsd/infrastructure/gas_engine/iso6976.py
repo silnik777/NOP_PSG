@@ -18,18 +18,25 @@ _M_AIR = 28.9647  # g/mol (dry air)
 # Component gross (Hs) and net (Hi) molar calorific value at 25 degC, kJ/mol; molar mass g/mol.
 # Source: ISO 6976 reference tables (standard enthalpies of combustion).
 _COMPONENT_DATA: dict[str, tuple[float, float, float]] = {
-    # key: (Hs_kJ_mol, Hi_kJ_mol, M_g_mol)
+    # key: (Hs_kJ_mol, Hi_kJ_mol, M_g_mol)  — ISO 6976 reference tables, 25 degC combustion.
     "methane": (890.63, 802.60, 16.043),
     "ethane": (1560.69, 1428.64, 30.070),
     "propane": (2219.17, 2043.11, 44.097),
     "n_butane": (2877.40, 2657.32, 58.123),
     "i_butane": (2869.38, 2649.30, 58.123),
+    "n_pentane": (3535.77, 3271.67, 72.150),
+    "i_pentane": (3528.83, 3264.73, 72.150),
+    "n_hexane": (4194.75, 3886.65, 86.177),
+    "n_heptane": (4853.30, 4501.20, 100.204),
+    "n_octane": (5511.62, 5115.52, 114.231),
     "hydrogen": (285.83, 241.72, 2.016),
     "carbon_monoxide": (282.98, 282.98, 28.010),
+    "hydrogen_sulfide": (562.01, 517.90, 34.081),
     "nitrogen": (0.0, 0.0, 28.014),
     "carbon_dioxide": (0.0, 0.0, 44.010),
     "oxygen": (0.0, 0.0, 31.999),
     "water": (0.0, 0.0, 18.015),
+    "argon": (0.0, 0.0, 39.948),
     "helium": (0.0, 0.0, 4.003),
 }
 

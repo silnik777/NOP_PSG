@@ -122,3 +122,84 @@ class LinepackResponse(BaseModel):
     linepackNormalVolume: Quantity
     averagePressure: Quantity
     averageDensity: Quantity
+
+
+# ----- gas blending + quality (custom compositions, propanization) -------------
+
+
+class BlendStream(BaseModel):
+    compositionId: str | None = None
+    gasComposition: dict[str, float] | None = None
+    share: float = Field(gt=0, description="Relative molar/volumetric share of this stream.")
+
+
+class BlendRequest(BaseModel):
+    streams: list[BlendStream]
+    referencePair: str = "25/0"
+
+
+class BlendResponse(BaseModel):
+    composition: dict[str, float]
+    grossCalorificValue: Quantity
+    wobbeIndex: Quantity
+    relativeDensity: float
+    normalDensity: Quantity
+
+
+class QualityLimitsDTO(BaseModel):
+    wobbeMin: float = 45.0
+    wobbeMax: float = 56.9
+    grossCvMin: float = 34.0
+    referencePair: str = "25/0"
+
+
+class QualityRequest(BaseModel):
+    compositionId: str | None = None
+    gasComposition: dict[str, float] | None = None
+    limits: QualityLimitsDTO | None = None
+
+
+class ConditioningProposalDTO(BaseModel):
+    action: str
+    additive: str
+    additiveFractionMol: float
+    resultingWobbe: Quantity
+    resultingGrossCv: Quantity
+    note: str
+
+
+class QualityResponse(BaseModel):
+    withinSpec: bool
+    wobbeIndex: Quantity
+    grossCalorificValue: Quantity
+    relativeDensity: float
+    violations: list[str]
+    proposal: ConditioningProposalDTO | None = None
+
+
+# ----- storage: CAES -----------------------------------------------------------
+
+
+class CaesRequest(BaseModel):
+    cavernVolume: Quantity
+    maxPressure: Quantity
+    minPressure: Quantity
+    storageTemperature: Quantity | None = None
+    ambientPressure: Quantity | None = None
+    ambientTemperature: Quantity | None = None
+    chargeIsentropicEfficiency: float = 0.80
+    dischargeIsentropicEfficiency: float = 0.85
+    compressionStages: int = 3
+    expansionStages: int = 3
+    gasComposition: dict[str, float] | None = None  # defaults to air
+
+
+class CaesResponse(BaseModel):
+    storedAirMassMax: Quantity
+    workingAirMass: Quantity
+    chargeEnergy: Quantity
+    dischargeEnergy: Quantity
+    roundTripEfficiency: float
+    dischargeOutletTemperature: Quantity
+    resultClass: str
+    warnings: list[str] = []

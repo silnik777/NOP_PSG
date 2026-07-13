@@ -44,9 +44,30 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `POST /api/v1/thermo/compression` — Moduł I: sprężanie (Karta Modułu I).
 - `POST /api/v1/hydraulics/steady-flow` — Moduł II: przepływ ustalony (Colebrook-White).
 - `POST /api/v1/hydraulics/linepack` — Moduł II: pojemność akumulacyjna (linepack).
+- `POST /api/v1/gas/blend` — własna kompozycja z blendowania strumieni (gaz sieciowy +
+  wodór z elektrolizy + SNG z metanizacji) procentowo.
+- `POST /api/v1/gas/quality-check` — ocena jakości vs standard gazu wysokometanowego (grupa E);
+  gdy parametry spadną poniżej normy, proponowana jest **propanizacja** (lub balastowanie N₂).
+- `POST /api/v1/storage/caes` — magazynowanie energii w sprężonym powietrzu (CAES).
+- `POST /api/v1/storage/linepack` — magazyn w linepacku (widok magazynowy).
 - `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
   inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).
+
+### Jakość gazu, blendowanie i magazynowanie
+
+- **Składniki:** obsługiwany pełny zestaw GERG-2008 (metan, etan, propan, butany, pentany,
+  heksan, heptan, oktan, N₂, CO₂, H₂, O₂, CO, H₂S, argon, hel, woda) — patrz
+  `COMPONENT_TO_COOLPROP` w `domain/gas/composition.py`.
+- **Własne kompozycje:** `/gas/blend` łączy strumienie (np. gaz sieciowy + H₂ z elektrolizy +
+  SNG z metanizacji) procentowo; profile startowe `REF-STREAM-H2-ELX`, `REF-STREAM-SNG`.
+- **Propanizacja:** `/gas/quality-check` sprawdza Wobbe/ciepło spalania vs limity grupy E i przy
+  spadku poniżej normy wylicza wymagany dodatek propanu (lub azotu przy przekroczeniu górnego
+  limitu Wobbego). Uwaga inżynierska: dla gazu E dodatek H₂ do ~30% utrzymuje Wobbe ≥ 45, ale
+  **ciepło spalania** spada poniżej 34 MJ/m³ — to ono jest wiążącym ograniczeniem.
+- **CAES:** `/storage/caes` — magazynowanie energii w sprężonym powietrzu; sprężanie wielostopniowe
+  z międzychłodzeniem i rozprężanie z dogrzewem (model przesiewowy [SCREENING], sprawność
+  round-trip rzędu 45–50%).
 
 ### Moduł II — Hydraulika (Faza II / MVP)
 

@@ -10,18 +10,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # Canonical component name (document / API)  ->  CoolProp fluid name.
+# Covers the full GERG-2008 (ISO 20765-1) component set that CoolProp's HEOS backend supports.
 COMPONENT_TO_COOLPROP: dict[str, str] = {
     "methane": "Methane",
     "ethane": "Ethane",
     "propane": "Propane",
     "n_butane": "n-Butane",
     "i_butane": "IsoButane",
+    "n_pentane": "n-Pentane",
+    "i_pentane": "Isopentane",
+    "n_hexane": "n-Hexane",
+    "n_heptane": "n-Heptane",
+    "n_octane": "n-Octane",
     "nitrogen": "Nitrogen",
     "carbon_dioxide": "CarbonDioxide",
     "hydrogen": "Hydrogen",
     "oxygen": "Oxygen",
     "carbon_monoxide": "CarbonMonoxide",
+    "hydrogen_sulfide": "HydrogenSulfide",
     "water": "Water",
+    "argon": "Argon",
     "helium": "Helium",
 }
 
@@ -35,8 +43,18 @@ _ALIASES: dict[str, str] = {
     "nbutane": "n_butane",
     "ibutane": "i_butane",
     "isobutane": "i_butane",
+    "npentane": "n_pentane",
+    "ipentane": "i_pentane",
+    "isopentane": "i_pentane",
+    "nhexane": "n_hexane",
+    "nheptane": "n_heptane",
+    "noctane": "n_octane",
     "carbonmonoxide": "carbon_monoxide",
     "co": "carbon_monoxide",
+    "hydrogensulfide": "hydrogen_sulfide",
+    "h2s": "hydrogen_sulfide",
+    "ar": "argon",
+    "he": "helium",
 }
 
 _NORMALIZATION_TOLERANCE = 1e-6

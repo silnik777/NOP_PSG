@@ -39,6 +39,17 @@ _STARTER_PROFILES: list[dict] = [
         "name": "Mieszanka z wodorem 20%",
         "fractions": {"methane": 0.80, "hydrogen": 0.20},
     },
+    # Blend feedstock streams (for custom compositions via /api/v1/gas/blend).
+    {
+        "code": "REF-STREAM-H2-ELX",
+        "name": "Wodór z elektrolizy (czysty)",
+        "fractions": {"hydrogen": 0.9990, "oxygen": 0.0005, "water": 0.0005},
+    },
+    {
+        "code": "REF-STREAM-SNG",
+        "name": "Gaz syntetyczny z metanizacji (SNG)",
+        "fractions": {"methane": 0.960, "hydrogen": 0.020, "carbon_dioxide": 0.020},
+    },
 ]
 
 _STARTER_MODELS: list[dict] = [
