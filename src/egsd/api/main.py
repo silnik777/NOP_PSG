@@ -10,7 +10,18 @@ from fastapi import FastAPI
 
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
-from .v1 import devices, export, gas, gas_engine, hydraulics, projects, storage, thermo
+from .v1 import (
+    devices,
+    export,
+    finance,
+    gas,
+    gas_engine,
+    hydraulics,
+    prices,
+    projects,
+    storage,
+    thermo,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,5 +54,7 @@ app.include_router(thermo.router)
 app.include_router(hydraulics.router)
 app.include_router(devices.router)
 app.include_router(storage.router)
+app.include_router(prices.router)
+app.include_router(finance.router)
 app.include_router(export.router)
 app.include_router(projects.router)

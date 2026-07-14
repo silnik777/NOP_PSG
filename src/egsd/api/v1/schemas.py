@@ -267,3 +267,93 @@ class SelectExpanderResponse(BaseModel):
     auxiliaries: list[AuxiliaryDTO]
     alternatives: list[DeviceCandidateDTO]
     resultClass: str
+
+
+# ----- prices (history, trend, scenarios) --------------------------------------
+
+
+class PricePointDTO(BaseModel):
+    date: str
+    value: float
+
+
+class PriceSeriesSummary(BaseModel):
+    code: str
+    name: str
+    unit: str
+    currency: str
+    source: str
+    current: PricePointDTO
+
+
+class PriceHistoryResponse(BaseModel):
+    code: str
+    name: str
+    unit: str
+    currency: str
+    source: str
+    current: PricePointDTO
+    points: list[PricePointDTO]
+
+
+class TrendResponse(BaseModel):
+    code: str
+    annualizedReturn: float
+    pctChangeWindow: float
+    annualizedVolatility: float
+    movingAverageLast: float
+    movingAverageWindow: int
+
+
+class ScenarioBandDTO(BaseModel):
+    year: int
+    low: float
+    base: float
+    high: float
+
+
+class ScenarioResponse(BaseModel):
+    seriesCode: str
+    unit: str
+    startValue: float
+    annualizedReturn: float
+    bands: list[ScenarioBandDTO]
+
+
+# ----- finance (DCF) -----------------------------------------------------------
+
+
+class DcfRequest(BaseModel):
+    capex: float
+    discountRate: float
+    horizonYears: int
+    opexPerYear: list[float]
+    energyCostPerYear: list[float] = []
+    etsCostPerYear: list[float] = []
+    revenuePerYear: list[float] = []
+    outputPerYear: list[float] = []
+    lcoKind: str | None = None  # LCOE | LCOH | LCOHeat | LCOS
+
+
+class DcfResponse(BaseModel):
+    npv: float
+    irr: float | None
+    lcoValue: float | None
+    lcoKind: str | None
+    netCashFlows: list[float]
+    warnings: list[str] = []
+
+
+class SensitivityPointDTO(BaseModel):
+    deltaPct: float
+    npv: float
+
+
+class SensitivityAxisDTO(BaseModel):
+    parameter: str
+    points: list[SensitivityPointDTO]
+
+
+class TornadoResponse(BaseModel):
+    baseNpv: float
+    axes: list[SensitivityAxisDTO]

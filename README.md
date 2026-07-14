@@ -53,6 +53,14 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `GET  /api/v1/devices` — katalog technologii sprężarek/ekspanderów (karty urządzeń).
 - `POST /api/v1/devices/select-compressor` — dobór optymalnej sprężarki z bazy.
 - `POST /api/v1/devices/select-expander` — dobór optymalnego ekspandera z bazy.
+- `GET  /api/v1/prices` — lista serii cenowych z **ceną aktualną** (gaz TGE, energia TGE, EU ETS).
+- `GET  /api/v1/prices/{code}/history?weeks=26` — historia (~pół roku wstecz).
+- `GET  /api/v1/prices/{code}/trend` — trend (regresja, zmienność, średnia ruchoma).
+- `GET  /api/v1/prices/{code}/scenario?startYear=2026&horizon=5` — scenariusz low/base/high
+  oparty na historii i trendzie.
+- `GET  /api/v1/prices/{code}/chart.svg` — **wykres** historii (SVG, ~6 mies. + średnia ruchoma).
+- `POST /api/v1/finance/dcf` — DCF: NPV, IRR (Brent), LCOE/LCOH/LCOHeat/LCOS.
+- `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).
 - `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
   inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).

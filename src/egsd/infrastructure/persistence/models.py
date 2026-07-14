@@ -44,6 +44,32 @@ class ReferenceGasProfileRow(Base):
     fractions: Mapped[dict] = mapped_column(JSON)
 
 
+class PriceSeriesRow(Base):
+    """Metadata for a market price series (e.g. PL gas TGE, EU ETS)."""
+
+    __tablename__ = "price_series"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(128))
+    unit: Mapped[str] = mapped_column(String(32))  # e.g. PLN/MWh, EUR/t
+    currency: Mapped[str] = mapped_column(String(8))
+    source: Mapped[str] = mapped_column(String(128), default="")
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+
+
+class PricePointRow(Base):
+    """A dated observation in a price series (append-only history)."""
+
+    __tablename__ = "price_points"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    series_code: Mapped[str] = mapped_column(String(64), index=True)
+    observed_on: Mapped[str] = mapped_column(String(10))  # ISO date YYYY-MM-DD
+    value: Mapped[float] = mapped_column()
+    __table_args__ = (UniqueConstraint("series_code", "observed_on", name="uq_series_date"),)
+
+
 class DeviceCardRow(Base):
     """Compressor/expander technology card (reference data)."""
 
