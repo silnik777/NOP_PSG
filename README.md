@@ -65,6 +65,11 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `GET  /api/v1/prices/{code}/chart.svg` — **wykres** historii (SVG, ~6 mies. + średnia ruchoma).
 - `POST /api/v1/finance/dcf` — DCF: NPV, IRR (Brent), LCOE/LCOH/LCOHeat/LCOS.
 - `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).
+- `POST /api/v1/emissions/footprint` — CoreEmissionEngine: ślad CO₂e Scope 1/2/3
+  (GHG Protocol, GWP AR6: CH₄=29,8, H₂=11; wodór szary vs zielony).
+- `POST /api/v1/mcda/rank` — ranking wariantów **TOPSIS** (NPV↑, CAPEX↓, CO₂e↓, TRL↑)
+  z **Gatekeeperem porównywalności** (W7.1/W7.2): niezgodne założenia makro → HTTP 409
+  z listą rozbieżności.
 - `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
   inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).
