@@ -44,6 +44,27 @@ class ReferenceGasProfileRow(Base):
     fractions: Mapped[dict] = mapped_column(JSON)
 
 
+class DeviceCardRow(Base):
+    """Compressor/expander technology card (reference data)."""
+
+    __tablename__ = "device_cards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(128))
+    role: Mapped[str] = mapped_column(String(16))  # Compressor | Expander
+    category: Mapped[str] = mapped_column(String(32))
+    stage_ratio_min: Mapped[float] = mapped_column()
+    stage_ratio_max: Mapped[float] = mapped_column()
+    stage_ratio_optimal: Mapped[float] = mapped_column()
+    isentropic_efficiency_nominal: Mapped[float] = mapped_column()
+    ratio_derate: Mapped[float] = mapped_column()
+    mass_flow_min_kg_s: Mapped[float] = mapped_column()
+    mass_flow_max_kg_s: Mapped[float] = mapped_column()
+    max_discharge_temperature_k: Mapped[float] = mapped_column(default=473.15)
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+
 class ProjectRow(Base):
     __tablename__ = "projects"
 

@@ -203,3 +203,67 @@ class CaesResponse(BaseModel):
     dischargeOutletTemperature: Quantity
     resultClass: str
     warnings: list[str] = []
+
+
+# ----- device selection (compressor / expander technology) ---------------------
+
+
+class DeviceCardDTO(BaseModel):
+    code: str
+    name: str
+    role: str
+    category: str
+    stageRatioMin: float
+    stageRatioMax: float
+    stageRatioOptimal: float
+    isentropicEfficiencyNominal: float
+    massFlowMin: Quantity
+    massFlowMax: Quantity
+    notes: str
+
+
+class AuxiliaryDTO(BaseModel):
+    kind: str
+    description: str
+    duty: Quantity | None = None
+    source: str | None = None
+
+
+class DeviceCandidateDTO(BaseModel):
+    code: str
+    name: str
+    category: str
+    feasible: bool
+    stages: int
+    stageRatio: float
+    effectiveEfficiency: float
+    reason: str = ""
+
+
+class DeviceSelectRequest(BaseModel):
+    compositionId: str | None = None
+    gasComposition: dict[str, float] | None = None
+    massFlowRate: Quantity
+    inletPressure: Quantity
+    inletTemperature: Quantity
+    outletPressureTarget: Quantity
+
+
+class SelectCompressorResponse(BaseModel):
+    selected: DeviceCandidateDTO | None
+    requiredShaftPower: Quantity
+    outletTemperature: Quantity
+    pressureRatio: float
+    auxiliaries: list[AuxiliaryDTO]
+    alternatives: list[DeviceCandidateDTO]
+    resultClass: str
+
+
+class SelectExpanderResponse(BaseModel):
+    selected: DeviceCandidateDTO | None
+    recoveredPower: Quantity
+    outletTemperatureSingleStage: Quantity
+    pressureRatio: float
+    auxiliaries: list[AuxiliaryDTO]
+    alternatives: list[DeviceCandidateDTO]
+    resultClass: str

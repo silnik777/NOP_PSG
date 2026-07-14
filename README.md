@@ -50,6 +50,9 @@ docker compose up --build               # app na :8000, Postgres na :5432
   gdy parametry spadną poniżej normy, proponowana jest **propanizacja** (lub balastowanie N₂).
 - `POST /api/v1/storage/caes` — magazynowanie energii w sprężonym powietrzu (CAES).
 - `POST /api/v1/storage/linepack` — magazyn w linepacku (widok magazynowy).
+- `GET  /api/v1/devices` — katalog technologii sprężarek/ekspanderów (karty urządzeń).
+- `POST /api/v1/devices/select-compressor` — dobór optymalnej sprężarki z bazy.
+- `POST /api/v1/devices/select-expander` — dobór optymalnego ekspandera z bazy.
 - `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
   inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).
@@ -68,6 +71,25 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - **CAES:** `/storage/caes` — magazynowanie energii w sprężonym powietrzu; sprężanie wielostopniowe
   z międzychłodzeniem i rozprężanie z dogrzewem (model przesiewowy [SCREENING], sprawność
   round-trip rzędu 45–50%).
+
+### Dobór technologii maszyn (karty urządzeń)
+
+Zamiast sztywnej sprawności, sprężanie/ekspansja **dobierają technologię z katalogu**
+(`device_cards`, dane referencyjne wersjonowane):
+
+- Technologie: sprężarki **tłokowa / śrubowa / Rootsa / spiralna / odśrodkowa**;
+  ekspandery **turbo / tłokowy / śrubowy** — każda z zakresem sprężu na stopień, sprężem
+  optymalnym, nominalną sprawnością izentropową, zakresem przepływu i limitem temperatury.
+- **Charakterystyka sprawnościowa:** sprawność maleje z oddaleniem od sprężu optymalnego;
+  poza zakresem urządzenie jest odrzucane. Dobór liczy **wymaganą liczbę stopni** i spręż na
+  stopień, ocenia sprawność efektywną i **rankinguje** kandydatów.
+- **Urządzenia pomocnicze:** dla sprężania — chłodnice międzystopniowe i **chłodnica końcowa**
+  (ochrona powłoki gazociągu, dobór źródła: air/water-cooler, z mocą kW); dla ekspansji —
+  **podgrzew wstępny** przy ryzyku hydratów/zamarzania (dobór źródła: gaz/ciepło odpadowe/elektryczny)
+  oraz **reduktor dławiący** ZA maszyną, gdy nie osiąga ciśnienia docelowego.
+
+Przykład (stacja redukcyjna 5→1 MPa, 20 kg/s): dobrany turboekspander, odzysk ~2,7 MW,
+wylot jednostopniowy 207 K → proponowany podgrzew ~3,4 MW.
 
 ### Moduł II — Hydraulika (Faza II / MVP)
 
