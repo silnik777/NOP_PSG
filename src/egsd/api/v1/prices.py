@@ -6,14 +6,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from ...application.price_service import analyze_trend, build_scenario
+from ...application.price_service import analyze_trend, build_report_scenario, build_scenario
 from ...infrastructure.charts.svg import line_chart
 from ...infrastructure.persistence.database import get_session
-from ...infrastructure.persistence.price_repository import list_series_codes, load_series
+from ...infrastructure.persistence.price_repository import (
+    list_macro_scenarios,
+    list_series_codes,
+    load_scenario_path,
+    load_series,
+)
 from .schemas import (
+    MacroScenarioDTO,
     PriceHistoryResponse,
     PricePointDTO,
     PriceSeriesSummary,
+    ReportScenarioResponse,
     ScenarioBandDTO,
     ScenarioResponse,
     TrendResponse,
@@ -84,6 +91,44 @@ def scenario(
         seriesCode=sc.series_code, unit=sc.unit, startValue=sc.start_value,
         annualizedReturn=sc.annualized_return,
         bands=[ScenarioBandDTO(year=b.year, low=b.low, base=b.base, high=b.high) for b in sc.bands],
+    )
+
+
+@router.get("/scenarios/macro", response_model=list[MacroScenarioDTO])
+def macro_scenarios(session: Session = Depends(get_session)) -> list[MacroScenarioDTO]:
+    return [
+        MacroScenarioDTO(
+            code=m.code, name=m.name, family=m.family, source=m.source,
+            vintage=m.vintage, notes=m.notes,
+        )
+        for m in list_macro_scenarios(session)
+    ]
+
+
+@router.get("/{code}/report-scenario", response_model=ReportScenarioResponse)
+def report_scenario(
+    code: str,
+    anchor: bool = Query(True, description="Rescale report paths to the current price level"),
+    session: Session = Depends(get_session),
+) -> ReportScenarioResponse:
+    """Report-based low/base/high path anchored on the current observed price level."""
+    series = _load_or_404(code, session)
+    scenarios = list_macro_scenarios(session)
+    family_paths: dict[str, dict[int, float]] = {}
+    sources: dict[str, str] = {}
+    for macro in scenarios:
+        path = load_scenario_path(session, macro.code, code)
+        if path:
+            family_paths[macro.family] = path
+            sources[macro.family] = f"{macro.source} ({macro.vintage})"
+    if "base" not in family_paths:
+        raise HTTPException(status_code=404, detail=f"No macro scenario covers series {code!r}.")
+
+    rs = build_report_scenario(series, family_paths, sources, anchor=anchor)
+    return ReportScenarioResponse(
+        seriesCode=rs.series_code, unit=rs.unit, referenceValue=rs.reference_value,
+        anchored=rs.anchored, basis=rs.basis, sources=rs.sources,
+        bands=[ScenarioBandDTO(year=b.year, low=b.low, base=b.base, high=b.high) for b in rs.bands],
     )
 
 

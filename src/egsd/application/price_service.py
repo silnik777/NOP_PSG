@@ -12,6 +12,7 @@ import statistics
 from ..domain.prices.models import (
     PriceScenario,
     PriceSeries,
+    ReportScenario,
     ScenarioBand,
     TrendAnalysis,
 )
@@ -84,4 +85,51 @@ def build_scenario(
     return PriceScenario(
         series_code=series.code, unit=series.unit, start_value=start,
         annualized_return=g, bands=bands,
+    )
+
+
+def build_report_scenario(
+    series: PriceSeries,
+    family_paths: dict[str, dict[int, float]],
+    sources: dict[str, str],
+    anchor: bool = True,
+) -> ReportScenario:
+    """Report-based low/base/high path.
+
+    History supplies only the reference level: each report family's forward trajectory is
+    rescaled so its base year equals the current observed price (when anchor=True). The band
+    per year is low=min, base=base-family, high=max across the three anchored families.
+    """
+    if "base" not in family_paths:
+        raise ValueError("a 'base' family path is required.")
+    reference = series.latest.value
+
+    def factor(path: dict[int, float]) -> float:
+        base_year = min(path)
+        base_val = path[base_year]
+        return (reference / base_val) if (anchor and base_val) else 1.0
+
+    factors = {fam: factor(path) for fam, path in family_paths.items()}
+    years = sorted(set().union(*(set(p) for p in family_paths.values())))
+
+    bands: list[ScenarioBand] = []
+    for y in years:
+        anchored = {
+            fam: round(path[y] * factors[fam], 4)
+            for fam, path in family_paths.items()
+            if y in path
+        }
+        base_v = anchored["base"]
+        bands.append(
+            ScenarioBand(
+                year=y,
+                low=min(anchored.values()),
+                base=base_v,
+                high=max(anchored.values()),
+            )
+        )
+    return ReportScenario(
+        series_code=series.code, unit=series.unit, reference_value=reference,
+        anchored=anchor, basis="; ".join(sorted(set(sources.values()))),
+        bands=bands, sources=[f"{fam}: {src}" for fam, src in sorted(sources.items())],
     )

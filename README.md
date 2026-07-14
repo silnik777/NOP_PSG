@@ -56,8 +56,12 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `GET  /api/v1/prices` — lista serii cenowych z **ceną aktualną** (gaz TGE, energia TGE, EU ETS).
 - `GET  /api/v1/prices/{code}/history?weeks=26` — historia (~pół roku wstecz).
 - `GET  /api/v1/prices/{code}/trend` — trend (regresja, zmienność, średnia ruchoma).
-- `GET  /api/v1/prices/{code}/scenario?startYear=2026&horizon=5` — scenariusz low/base/high
-  oparty na historii i trendzie.
+- `GET  /api/v1/prices/scenarios/macro` — lista scenariuszy makro wg raportów (z atrybucją źródła).
+- `GET  /api/v1/prices/{code}/report-scenario?anchor=true` — **scenariusz oparty na raportach**
+  (ARE/PEP2040/KPEiR, Fit-for-55, EU Reference/IEA WEO) low/base/high, zakotwiczony do ceny
+  bieżącej (historia = poziom odniesienia). **Zalecany** dla analiz.
+- `GET  /api/v1/prices/{code}/scenario?startYear=2026&horizon=5` — scenariusz z trendu
+  (fallback/orientacyjny).
 - `GET  /api/v1/prices/{code}/chart.svg` — **wykres** historii (SVG, ~6 mies. + średnia ruchoma).
 - `POST /api/v1/finance/dcf` — DCF: NPV, IRR (Brent), LCOE/LCOH/LCOHeat/LCOS.
 - `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).

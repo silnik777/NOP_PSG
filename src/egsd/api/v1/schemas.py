@@ -320,6 +320,25 @@ class ScenarioResponse(BaseModel):
     bands: list[ScenarioBandDTO]
 
 
+class MacroScenarioDTO(BaseModel):
+    code: str
+    name: str
+    family: str
+    source: str
+    vintage: str
+    notes: str
+
+
+class ReportScenarioResponse(BaseModel):
+    seriesCode: str
+    unit: str
+    referenceValue: float
+    anchored: bool
+    basis: str
+    sources: list[str]
+    bands: list[ScenarioBandDTO]
+
+
 # ----- finance (DCF) -----------------------------------------------------------
 
 

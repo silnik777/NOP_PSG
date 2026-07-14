@@ -50,3 +50,24 @@ class PriceScenario:
     start_value: float
     annualized_return: float
     bands: list[ScenarioBand]
+
+
+@dataclass(frozen=True)
+class MacroScenario:
+    code: str
+    name: str
+    family: str  # low | base | high
+    source: str
+    vintage: str
+    notes: str
+
+
+@dataclass(frozen=True)
+class ReportScenario:
+    series_code: str
+    unit: str
+    reference_value: float  # current observed level (history anchor)
+    anchored: bool
+    basis: str  # report attribution summary
+    bands: list[ScenarioBand]
+    sources: list[str]

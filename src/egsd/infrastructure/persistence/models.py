@@ -70,6 +70,37 @@ class PricePointRow(Base):
     __table_args__ = (UniqueConstraint("series_code", "observed_on", name="uq_series_date"),)
 
 
+class MacroScenarioRow(Base):
+    """A named macro price scenario sourced from an institutional report family."""
+
+    __tablename__ = "macro_scenarios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(160))
+    family: Mapped[str] = mapped_column(String(32))  # low | base | high
+    source: Mapped[str] = mapped_column(String(200))  # report attribution
+    vintage: Mapped[str] = mapped_column(String(16), default="")  # publication year
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+
+class MacroScenarioPointRow(Base):
+    """Annual projected price for a (scenario, commodity, year)."""
+
+    __tablename__ = "macro_scenario_points"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scenario_code: Mapped[str] = mapped_column(String(64), index=True)
+    commodity_code: Mapped[str] = mapped_column(String(64))  # matches price_series.code
+    year: Mapped[int] = mapped_column(Integer)
+    value: Mapped[float] = mapped_column()
+    __table_args__ = (
+        UniqueConstraint(
+            "scenario_code", "commodity_code", "year", name="uq_macro_point"
+        ),
+    )
+
+
 class DeviceCardRow(Base):
     """Compressor/expander technology card (reference data)."""
 

@@ -21,6 +21,7 @@ def init_db() -> None:
     """Create schema (dev mode) and seed reference data if empty."""
     Base.metadata.create_all(engine)
     from .device_seed import seed_device_cards
+    from .macro_scenario_seed import seed_macro_scenarios
     from .price_seed import seed_price_series
     from .seed import seed_reference_data
 
@@ -28,6 +29,7 @@ def init_db() -> None:
         seed_reference_data(session)
         seed_device_cards(session)
         seed_price_series(session)
+        seed_macro_scenarios(session)
         session.commit()
 
 
