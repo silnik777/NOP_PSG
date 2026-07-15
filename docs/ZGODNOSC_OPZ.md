@@ -4,7 +4,13 @@ Dokument ocenia, w jakim stopniu obecny stan aplikacji **e‑GSD** realizuje wym
 ze szczególnym uwzględnieniem **zakresu MVP (§50, kryterium ACC‑MVP‑001)**. Ocena jest
 podstawą decyzji o budowie pełnego GUI.
 
-**Data oceny:** 2026‑07‑15 · **Gałąź:** `claude/app-opz-p4c213` · **Testy:** 116 pass, 1 xfail
+**Data oceny:** 2026‑07‑15 (aktualizacja po domknięciu luk backendu) · **Gałąź:**
+`claude/app-opz-p4c213` · **Testy:** 153 pass, 1 xfail
+
+> **Aktualizacja:** Luki 1–5 z pierwotnej wersji tego raportu zostały domknięte
+> (ceny/punkt startowy+wykres, wersjonowanie receptur i profili, wybór wersjonowanego
+> zestawu wymagań jakości, raport techniczny, minimalne uwierzytelnianie). **Wszystkie 24
+> elementy MVP są zrealizowane.** Pozostaje budowa GUI (sekcja 7).
 
 ## Legenda statusów
 - ✅ **Zrealizowane** — działa i jest pokryte testem/dowodem.
@@ -17,15 +23,15 @@ podstawą decyzji o budowie pełnego GUI.
 
 Aplikacja ma **mocny, zwalidowany rdzeń obliczeniowy** (termodynamika GERG‑2008, mieszanie,
 jakość+propan, spalanie/emisje ze składu, 5 klas ekspanderów, ekonomika DCF, merit order,
-odtwarzalność i audyt). **Nie spełnia jednak jeszcze pełnego MVP** — brakuje kilku elementów
-łańcucha cenowego, trwałości/wersjonowania receptur, wyboru wersjonowanego zestawu wymagań
-jakości, uwierzytelniania oraz **całego interfejsu użytkownika (GUI)**.
+łańcuch cenowy z punktem startowym i wykresem prognozy, wersjonowanie profili i receptur,
+raport techniczny, odtwarzalność, audyt i minimalne uwierzytelnianie). Po domknięciu luk
+backendu **wszystkie 24 elementy MVP są zrealizowane**; do pełnego wdrożenia pozostaje
+**interfejs użytkownika (GUI)** oraz elementy eksploatacyjne (OPS/SSO/SBOM).
 
-**Kompletność 24 elementów MVP (§50): 16 ✅ · 4 🟡 · 4 ❌.**
+**Kompletność 24 elementów MVP (§50): 24 ✅.**
 
-> Wniosek dla GUI: rdzeń jest wystarczający, by zaprojektować GUI dla ~70% ekranów już teraz,
-> ale **4 luki cenowe/receptur należy domknąć w backendzie** równolegle z GUI, inaczej część
-> ekranów nie będzie miała czego pokazać.
+> Wniosek dla GUI: rdzeń jest kompletny — można budować pełne GUI dla wszystkich ekranów
+> łańcucha OPZ na ustabilizowanym API (sekcja 7).
 
 ---
 
@@ -33,13 +39,13 @@ jakości, uwierzytelniania oraz **całego interfejsu użytkownika (GUI)**.
 
 | # | Element MVP | Status | Dowód / uwaga |
 |---|-------------|:------:|---------------|
-| 1 | Kreator własnego profilu gazu | 🟡 | Skład można podać inline w każdej funkcji; brak zapisu i wersjonowania własnego profilu jako trwałego obiektu. |
+| 1 | Kreator własnego profilu gazu | ✅ | `POST /api/v1/gas/profiles` — trwały, wersjonowany profil (status/właściciel); używalny jako `compositionId` wszędzie. |
 | 2 | Wybór profilu z bazy | ✅ | `GET /api/v1/reference-profiles`, pole `compositionId`. |
 | 3 | Mieszanie ≥2 profili | ✅ | `POST /api/v1/gas/blend`. |
 | 4 | Mieszanie własny + bazowy | ✅ | `blend` przyjmuje w strumieniu inline `gasComposition` **lub** `compositionId`. |
-| 5 | Wersjonowanie receptury | ❌ | `blend` jest bezstanowy — receptura nie jest zapisywana ani wersjonowana. |
+| 5 | Wersjonowanie receptury | ✅ | `POST /api/v1/gas/recipes` (wersjonowane) + `.../{code}/run` — deterministyczne ponowne uruchomienie z sumą kontrolną. |
 | 6 | Podstawowe właściwości gazu | ✅ | `POST /api/v1/gas-engine/point-properties` (GERG‑2008). |
-| 7 | Ocena wobec zestawu wymagań gazu wysokometanowego | 🟡 | `quality-check` ocenia wg grupy E, ale limity są zaszyte — brak **wyboru wersjonowanego** zestawu wymagań (GAS‑QLT, ZP‑001). |
+| 7 | Ocena wobec zestawu wymagań gazu wysokometanowego | ✅ | Katalog wersjonowanych zestawów (`GET /gas/quality-requirement-sets`); `quality-check` przyjmuje `requirementSetId` i echouje zastosowany zestaw+wersję. |
 | 8 | Wskazanie parametrów niespełnionych | ✅ | `quality-check` → `withinSpec` + parametry poza normą. |
 | 9 | ≥1 metoda kondycjonowania | ✅ | Propanizacja / balastowanie N₂. |
 | 10 | Analiza dodania propanu | ✅ | `quality-check` liczy wymagany dodatek propanu. |
@@ -49,13 +55,13 @@ jakości, uwierzytelniania oraz **całego interfejsu użytkownika (GUI)**.
 | 14 | Wspólny silnik ekonomiczny | ✅ | `POST /api/v1/finance/dcf` (NPV/IRR/LCOE…). |
 | 15 | Merit order dla energii el. i ciepła | ✅ | `POST /api/v1/merit-order`. |
 | 16 | Scenariusz cenowy z danych historycznych | ✅ | `GET /api/v1/prices/{code}/report-scenario`. |
-| 17 | Punkt startowy — konfigurowalne okno, domyślnie 30 dni | ❌ | Scenariusz kotwiczy do **ostatniej** obserwacji; brak okna 30 dni i trybów agregacji (§30.3 A). |
-| 18 | Możliwość wskazania własnej daty | ❌ | Brak trybu daty użytkownika (§30.3 B, PRC). |
-| 19 | Możliwość wskazania własnej ceny startowej | ❌ | Brak trybu wartości użytkownika (§30.3 C, PRC). |
-| 20 | Wykres historia + prognoza z granicą | 🟡 | `chart.svg` pokazuje samą historię; brak połączenia z prognozą i oznaczenia punktu przejścia (PRC‑002). |
+| 17 | Punkt startowy — konfigurowalne okno, domyślnie 30 dni | ✅ | `POST /prices/{code}/start-point` tryb `current` z oknem 30 dni i agregacją (mean/median/last); „30 dni ≠ 30 obserwacji" raportowane jawnie. |
+| 18 | Możliwość wskazania własnej daty | ✅ | Tryb `user_date` (§30.3 B) — dokładny zestaw obserwacji, zgłoszenie braku danych. |
+| 19 | Możliwość wskazania własnej ceny startowej | ✅ | Tryb `user_value` (§30.3 C) — oznaczenie danej użytkownika + źródło. |
+| 20 | Wykres historia + prognoza z granicą | ✅ | `GET /prices/{code}/forecast-chart.svg` — historia + pasmo prognozy + oznaczona granica przejścia (PRC‑002). |
 | 21 | Pełna odtwarzalność | ✅ | `result_hash` (SHA‑256), `ResultRecord`, suma kontrolna konfiguracji. |
 | 22 | Podstawowa ścieżka audytowa | ✅ | Moduł audytu + zapis uruchomień. |
-| 23 | Raport techniczny | 🟡 | Jest eksport CSV/XLSX wyników; brak generowanego **raportu technicznego** (dokumentu). |
+| 23 | Raport techniczny | ✅ | `POST /reports/technical(.html)` — dokument HTML z metadanymi, klasą jakości bloków, ostrzeżeniami i sumą kontrolną. |
 | 24 | Eksport wyników | ✅ | `POST /api/v1/export/compression`, `/export/hydraulics`. |
 
 ---
@@ -81,7 +87,7 @@ jakości, uwierzytelniania oraz **całego interfejsu użytkownika (GUI)**.
 
 | Obszar (OPZ) | Status | Uwaga |
 |--------------|:------:|-------|
-| **SEC — bezpieczeństwo/uwierzytelnianie/role** (§37, ZP‑002) | ❌ | **Brak logowania, ról i autoryzacji.** API jest otwarte. To istotna luka MVP (SEC‑001…007). Wymaga decyzji ZP‑002 (SSO SAML/OIDC/AD). |
+| **SEC — bezpieczeństwo/uwierzytelnianie/role** (§37, ZP‑002) | 🟡 | Minimalny mechanizm token→rola z hierarchią ról §10 (`/auth/whoami`, guard ≥ analityk na zapisie), domyślnie wyłączony (`EGSD_AUTH_ENABLED`). Docelowo SSO SAML/OIDC/AD (ZP‑002). |
 | **UX — interfejs użytkownika** (§32) | ❌ | Brak GUI; obsługa tylko przez Swagger `/docs`. To przedmiot następnego etapu. |
 | **AUD — audyt** (§38) | ✅ | Podstawowy ślad audytowy i niezmienność wyników historycznych. |
 | **VAL — walidacja** (§39) | ✅ | Testy jednostkowe/integracyjne/odtwarzalności; zwalidowane wartości fizyczne. |
@@ -93,42 +99,37 @@ jakości, uwierzytelniania oraz **całego interfejsu użytkownika (GUI)**.
 
 ---
 
-## 5. Luki blokujące pełne MVP (priorytet do domknięcia PRZED/RÓWNOLEGLE z GUI)
+## 5. Luki MVP — status domknięcia
 
-Uszeregowane wg wpływu na kryterium ACC‑MVP‑001:
+Wszystkie luki blokujące z pierwotnej wersji raportu zostały **domknięte** (dowód: testy +
+endpointy):
 
-1. **Łańcuch cenowy — punkt startowy i wykres (MVP 17–20, PRC‑002…008).** Cztery tryby
-   punktu startowego (aktualny z oknem 30 dni + agregacja, data użytkownika, wartość
-   użytkownika, indeks), oddzielenie i **połączenie** historii z prognozą na wykresie z
-   oznaczoną granicą. *Największa pojedyncza luka MVP.*
-2. **Wersjonowanie receptur mieszania i zapis własnych profili (MVP 1, 5).** Trwały obiekt
-   `BlendRecipe`/`CompositionProfile` z wersją, statusem, właścicielem i możliwością
-   ponownego uruchomienia.
-3. **Wybieralny, wersjonowany zestaw wymagań jakości (MVP 7, GAS‑QLT, ZP‑001).** Zamiast
-   zaszytej grupy E — katalog wersjonowanych zestawów wymagań wskazywanych jawnie.
-4. **Uwierzytelnianie i role (SEC, ZP‑002).** Nawet minimalny mechanizm (konta + role
-   z §10) jest potrzebny do wielouserowej, audytowalnej pracy.
-5. **Raport techniczny (MVP 23).** Generowany dokument (PDF/HTML) z metadanymi wyniku,
-   klasą jakości i ostrzeżeniami.
+1. ✅ **Łańcuch cenowy — punkt startowy i wykres (MVP 17–20).** Cztery tryby (aktualny z oknem
+   30 dni + agregacja, data użytkownika, wartość użytkownika, indeks) oraz wykres historia+
+   prognoza z granicą.
+2. ✅ **Wersjonowanie receptur i zapis własnych profili (MVP 1, 5).** `CompositionProfile` i
+   `BlendRecipe` z wersją/statusem/właścicielem i deterministycznym ponownym uruchomieniem.
+3. ✅ **Wybieralny, wersjonowany zestaw wymagań jakości (MVP 7, GAS‑QLT).** Katalog zestawów;
+   jawny wybór i echo w wyniku.
+4. 🟡→✅(min.) **Uwierzytelnianie i role (SEC).** Minimalny mechanizm token→rola (docelowo SSO).
+5. ✅ **Raport techniczny (MVP 23).** Generowany dokument HTML z metadanymi i klasą jakości.
 
 Elementy oznaczone w OPZ jako *rozszerzenia*/*opcje* (Monte Carlo, unit commitment, CCS/CCU,
 pełne LCA, merit order chłodu/czasowy, backtesting) **są poza MVP** i nie blokują odbioru MVP.
+Do pełnego wdrożenia produkcyjnego pozostają elementy eksploatacyjne (SSO docelowe, pełne
+CI/CD i SLA, SBOM, komplet dokumentacji) oraz **GUI** (sekcja 7).
 
 ---
 
-## 6. Rekomendacja: sekwencja przed GUI
+## 6. Sekwencja — stan realizacji
 
-Proponowana kolejność, tak by GUI powstawało na kompletnym rdzeniu:
+- **Krok A (backend, domknięcie MVP):** ✅ **wykonany** — cenowy punkt startowy + wykres,
+  wersjonowanie receptur/profili, wybór zestawu wymagań jakości, raport techniczny.
+- **Krok B (bezpieczeństwo):** ✅ **minimalny mechanizm** token→rola gotowy; docelowo SSO (ZP‑002).
+- **Krok C (GUI):** ⏭️ **następny** — pełny interfejs webowy na ustabilizowanym API (sekcja 7).
 
-- **Krok A (backend, domknięcie MVP):** luki 1–3 i 5 z sekcji 5 (cenowy punkt startowy +
-  wykres, wersjonowanie receptur/profili, wybór zestawu wymagań jakości, raport). Każda jako
-  wycinek domain→application→API z testami — zgodnie z obecną architekturą.
-- **Krok B (bezpieczeństwo):** minimalne uwierzytelnianie + role (luka 4), z furtką na SSO
-  (ZP‑002).
-- **Krok C (GUI):** pełny interfejs webowy oparty na ustabilizowanym API (patrz sekcja 7).
-
-Kroki A i C mogą częściowo iść równolegle: ekrany dla ✅‑funkcji (mieszanie, jakość, spalanie,
-ekspandery, ekonomika, merit order) można budować od razu; ekrany cenowe/receptur — po Kroku A.
+Rdzeń jest kompletny dla wszystkich ekranów łańcucha OPZ — GUI można budować bez dalszych
+zależności backendowych w zakresie MVP.
 
 ---
 
