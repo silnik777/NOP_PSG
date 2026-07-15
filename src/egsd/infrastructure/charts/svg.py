@@ -107,3 +107,132 @@ def line_chart(
 
     parts.append("</svg>")
     return "".join(parts)
+
+
+def history_forecast_chart(
+    title: str,
+    history: list[tuple[str, float]],  # (date, value)
+    forecast: list[tuple[str, float, float, float]],  # (year, low, base, high)
+    unit: str = "",
+    width: int = 860,
+    height: int = 380,
+) -> str:
+    """History line joined to a forward low/base/high band, with a vertical boundary marker
+    at the history→forecast transition (OPZ MVP #20, PRC-002)."""
+    pad_l, pad_r, pad_t, pad_b = 64, 130, 40, 46
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+
+    n_hist = len(history)
+    n_fc = len(forecast)
+    n = n_hist + n_fc
+    if n < 2:
+        raise ValueError("need at least two points to chart.")
+
+    all_values = (
+        [v for _, v in history]
+        + [lo for _, lo, _, _ in forecast]
+        + [hi for _, _, _, hi in forecast]
+    )
+    y_min, y_max = min(all_values), max(all_values)
+    if y_max == y_min:
+        y_max = y_min + 1.0
+    span = y_max - y_min
+    y_min -= span * 0.08
+    y_max += span * 0.08
+
+    def px(i: int) -> float:
+        return pad_l + plot_w * i / (n - 1)
+
+    def py(v: float) -> float:
+        return pad_t + plot_h * (1 - (v - y_min) / (y_max - y_min))
+
+    parts: list[str] = []
+    parts.append(
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="12">'
+    )
+    parts.append(f'<rect width="{width}" height="{height}" fill="#0d1117"/>')
+    parts.append(
+        f'<text x="{pad_l}" y="24" fill="#e6edf3" font-size="15" '
+        f'font-weight="600">{_esc(title)}</text>'
+    )
+    for k in range(5):
+        v = y_min + (y_max - y_min) * k / 4
+        y = py(v)
+        parts.append(
+            f'<line x1="{pad_l}" y1="{y:.1f}" x2="{pad_l + plot_w}" y2="{y:.1f}" '
+            f'stroke="#30363d" stroke-width="1"/>'
+        )
+        parts.append(
+            f'<text x="{pad_l - 8}" y="{y + 4:.1f}" fill="#8b949e" '
+            f'text-anchor="end">{v:.1f}</text>'
+        )
+    if unit:
+        parts.append(
+            f'<text x="{pad_l - 8}" y="{pad_t - 12}" fill="#8b949e" '
+            f'text-anchor="end">{_esc(unit)}</text>'
+        )
+
+    # x labels: a few history dates + forecast years
+    labels = [d for d, _ in history] + [str(y) for y, *_ in forecast]
+    step = max(1, n // 7)
+    for i in range(0, n, step):
+        parts.append(
+            f'<text x="{px(i):.1f}" y="{height - pad_b + 20}" fill="#8b949e" '
+            f'text-anchor="middle">{_esc(labels[i])}</text>'
+        )
+
+    # forecast band (low..high) as a filled area on the right side
+    if n_fc:
+        b0 = n_hist - 1 if n_hist else 0  # anchor band start on the boundary point
+        top = [(px(b0 + 1 + j), py(hi)) for j, (_, _, _, hi) in enumerate(forecast)]
+        bot = [(px(b0 + 1 + j), py(lo)) for j, (_, lo, _, _) in enumerate(forecast)]
+        if n_hist:
+            anchor_v = history[-1][1]
+            top.insert(0, (px(b0), py(anchor_v)))
+            bot.insert(0, (px(b0), py(anchor_v)))
+        area = " ".join(f"{x:.1f},{y:.1f}" for x, y in top + list(reversed(bot)))
+        parts.append(f'<polygon points="{area}" fill="#1f6feb" fill-opacity="0.18"/>')
+        # base line
+        base_pts = [(px(b0), py(history[-1][1]))] if n_hist else []
+        base_pts += [(px(b0 + 1 + j), py(b)) for j, (_, _, b, _) in enumerate(forecast)]
+        base_poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in base_pts)
+        parts.append(
+            f'<polyline points="{base_poly}" fill="none" stroke="#58a6ff" '
+            f'stroke-width="2" stroke-dasharray="5 4"/>'
+        )
+
+    # history line
+    hist_poly = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, (_, v) in enumerate(history))
+    parts.append(
+        f'<polyline points="{hist_poly}" fill="none" stroke="#3fb950" stroke-width="2.2"/>'
+    )
+
+    # boundary marker
+    if n_hist and n_fc:
+        bx = px(n_hist - 1)
+        parts.append(
+            f'<line x1="{bx:.1f}" y1="{pad_t}" x2="{bx:.1f}" y2="{pad_t + plot_h}" '
+            f'stroke="#f0883e" stroke-width="1.5" stroke-dasharray="4 3"/>'
+        )
+        parts.append(
+            f'<text x="{bx + 4:.1f}" y="{pad_t + 12}" fill="#f0883e" '
+            f'font-size="11">granica historia/prognoza</text>'
+        )
+
+    # legend
+    legend = [("historia", "#3fb950"), ("prognoza (baza)", "#58a6ff"),
+              ("zakres low–high", "#1f6feb")]
+    for idx, (name, color) in enumerate(legend):
+        ly = pad_t + 6 + idx * 20
+        parts.append(
+            f'<rect x="{pad_l + plot_w + 16}" y="{ly - 9}" width="12" height="12" '
+            f'rx="2" fill="{color}"/>'
+        )
+        parts.append(
+            f'<text x="{pad_l + plot_w + 34}" y="{ly + 1}" fill="#e6edf3">{_esc(name)}</text>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)

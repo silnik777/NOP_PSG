@@ -2,7 +2,45 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class StartPointMode(str, Enum):
+    """The four forward-scenario start-point modes (OPZ §30.3 A–D)."""
+
+    CURRENT = "current"  # A — from data preceding the scenario date (default 30-day window)
+    USER_DATE = "user_date"  # B — reference date chosen by the user
+    USER_VALUE = "user_value"  # C — start value supplied by the user
+    INDEX = "index"  # D — derived from an index/quotation/formula
+
+
+class AggregationMethod(str, Enum):
+    """How observations inside the start-point window are aggregated (§30.3 A)."""
+
+    MEAN = "mean"
+    VOLUME_WEIGHTED = "volume_weighted"
+    MEDIAN = "median"
+    LAST = "last"
+
+
+@dataclass(frozen=True)
+class StartPoint:
+    """A resolved forward-scenario start point with full, reproducible provenance.
+
+    Crucially records `observations_used` separately from `window_days` — a 30-day window is
+    NOT 30 observations (§30.3 "30 dni ≠ 30 obserwacji").
+    """
+
+    value: float
+    mode: str
+    method: str  # aggregation method applied, or "n/a"
+    reference_date: str  # ISO date the point is anchored to
+    window_days: int | None
+    observations_used: int
+    observation_dates: list[str]
+    source: str
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -60,6 +98,20 @@ class MacroScenario:
     source: str
     vintage: str
     notes: str
+
+
+@dataclass(frozen=True)
+class PriceForecast:
+    """History joined to a forward scenario with an explicit transition boundary (PRC-002)."""
+
+    series_code: str
+    unit: str
+    start_point: StartPoint
+    history: list[PricePoint]  # observed
+    bands: list[ScenarioBand]  # forecast (year granularity)
+    boundary_date: str  # last observed date = history/forecast transition
+    annualized_return: float
+    notes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

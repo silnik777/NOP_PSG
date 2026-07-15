@@ -8,17 +8,23 @@ This feeds the finance engine's discounted cash-flow inputs.
 from __future__ import annotations
 
 import statistics
+from datetime import date, timedelta
 
 from ..domain.prices.models import (
+    AggregationMethod,
+    PriceForecast,
     PriceScenario,
     PriceSeries,
     ReportScenario,
     ScenarioBand,
+    StartPoint,
+    StartPointMode,
     TrendAnalysis,
 )
 
 _WEEKS_PER_YEAR = 52.0
 _MAX_BAND = 0.6  # cap the low/high spread at +/-60%
+_DEFAULT_WINDOW_DAYS = 30  # §30.3 A default start-point window
 
 
 def _linear_slope(values: list[float]) -> float:
@@ -86,6 +92,154 @@ def build_scenario(
         series_code=series.code, unit=series.unit, start_value=start,
         annualized_return=g, bands=bands,
     )
+
+
+def _aggregate(values: list[float], dates: list[str], method: AggregationMethod) -> float:
+    if method is AggregationMethod.MEAN:
+        return sum(values) / len(values)
+    if method is AggregationMethod.MEDIAN:
+        return statistics.median(values)
+    if method in (AggregationMethod.LAST, AggregationMethod.VOLUME_WEIGHTED):
+        # LAST: newest observation. VOLUME_WEIGHTED has no volume in bundled data -> handled
+        # by the caller (falls back to MEAN with a warning); here treat as LAST if it slips in.
+        newest = max(range(len(dates)), key=lambda i: dates[i])
+        return values[newest]
+    raise ValueError(f"unsupported aggregation method {method!r}")
+
+
+def resolve_start_point(
+    series: PriceSeries,
+    mode: StartPointMode,
+    *,
+    window_days: int = _DEFAULT_WINDOW_DAYS,
+    aggregation: AggregationMethod = AggregationMethod.MEAN,
+    reference_date: str | None = None,
+    user_value: float | None = None,
+    user_note: str | None = None,
+    index_series: PriceSeries | None = None,
+    index_factor: float = 1.0,
+    index_offset: float = 0.0,
+) -> StartPoint:
+    """Resolve a forward-scenario start point in one of the four §30.3 modes.
+
+    Enforces "30 dni ≠ 30 obserwacji": the window is a calendar range, and the number of
+    observations actually found inside it is recorded separately.
+    """
+    warnings: list[str] = []
+    if window_days < 1:
+        raise ValueError("window_days must be >= 1.")
+
+    if mode is StartPointMode.USER_VALUE:
+        if user_value is None:
+            raise ValueError("mode 'user_value' requires a start value.")
+        if not user_note:
+            warnings.append("Wartość użytkownika bez źródła/uzasadnienia (zalecane w §30.3 C).")
+        ref = reference_date or series.latest.observed_on
+        return StartPoint(
+            value=float(user_value), mode=mode.value, method="user_value",
+            reference_date=ref, window_days=None, observations_used=0,
+            observation_dates=[], source=f"dana użytkownika: {user_note or 'brak komentarza'}",
+            warnings=tuple(warnings),
+        )
+
+    if mode is StartPointMode.INDEX:
+        if index_series is None:
+            raise ValueError("mode 'index' requires an index/reference series.")
+        base = index_series.latest.value
+        value = base * index_factor + index_offset
+        return StartPoint(
+            value=round(value, 6), mode=mode.value, method="index_formula",
+            reference_date=index_series.latest.observed_on, window_days=None,
+            observations_used=1, observation_dates=[index_series.latest.observed_on],
+            source=(
+                f"formuła indeksowa: {index_series.code} × {index_factor} + {index_offset}"
+            ),
+            warnings=tuple(warnings),
+        )
+
+    # Modes A (current) and B (user_date) both aggregate a calendar window of observations.
+    if mode is StartPointMode.CURRENT:
+        end = _parse_date(series.latest.observed_on)
+    elif mode is StartPointMode.USER_DATE:
+        if not reference_date:
+            raise ValueError("mode 'user_date' requires a reference date.")
+        end = _parse_date(reference_date)
+    else:  # pragma: no cover - exhaustive
+        raise ValueError(f"unsupported mode {mode!r}")
+
+    start = end - timedelta(days=window_days - 1)
+    in_window = [
+        p for p in series.points if start <= _parse_date(p.observed_on) <= end
+    ]
+    if not in_window:
+        raise ValueError(
+            f"Brak obserwacji w oknie {window_days} dni do {end.isoformat()} "
+            f"dla serii {series.code!r} (§30.3: zgłoszenie braku danych)."
+        )
+
+    method = aggregation
+    if aggregation is AggregationMethod.VOLUME_WEIGHTED:
+        warnings.append(
+            "Brak danych wolumenowych — średnia ważona wolumenem sprowadzona do arytmetycznej."
+        )
+        method = AggregationMethod.MEAN
+
+    values = [p.value for p in in_window]
+    dates = [p.observed_on for p in in_window]
+    value = _aggregate(values, dates, method)
+    if len(in_window) < window_days:
+        warnings.append(
+            f"Okno {window_days} dni kalendarzowych zawiera {len(in_window)} obserwacji "
+            "(30 dni ≠ 30 obserwacji — uwzględniono częstotliwość szeregu i dni bez notowań)."
+        )
+    return StartPoint(
+        value=round(value, 6), mode=mode.value, method=method.value,
+        reference_date=end.isoformat(), window_days=window_days,
+        observations_used=len(in_window), observation_dates=sorted(dates),
+        source=series.source, warnings=tuple(warnings),
+    )
+
+
+def build_forecast(
+    series: PriceSeries,
+    start_point: StartPoint,
+    horizon_years: int,
+    start_year: int | None = None,
+) -> PriceForecast:
+    """Join observed history to a forward low/base/high path starting at `start_point`,
+    with an explicit history→forecast boundary (PRC-002)."""
+    trend = analyze_trend(series)
+    g = trend.annualized_return
+    vol = trend.annualized_volatility
+    boundary = series.latest.observed_on
+    base_year = start_year if start_year is not None else _parse_date(boundary).year
+
+    bands: list[ScenarioBand] = []
+    for t in range(horizon_years + 1):
+        base = start_point.value * (1.0 + g) ** t
+        spread = min(_MAX_BAND, vol * (t**0.5))
+        bands.append(
+            ScenarioBand(
+                year=base_year + t,
+                low=round(base * (1.0 - spread), 4),
+                base=round(base, 4),
+                high=round(base * (1.0 + spread), 4),
+            )
+        )
+    notes = list(start_point.warnings)
+    notes.append(
+        f"Historia ({len(series.points)} obserwacji) oddzielona od prognozy; "
+        f"granica na {boundary}."
+    )
+    return PriceForecast(
+        series_code=series.code, unit=series.unit, start_point=start_point,
+        history=list(series.points), bands=bands, boundary_date=boundary,
+        annualized_return=g, notes=notes,
+    )
+
+
+def _parse_date(iso: str) -> date:
+    return date.fromisoformat(iso)
 
 
 def build_report_scenario(
