@@ -157,6 +157,24 @@ class QualityRequest(BaseModel):
     compositionId: str | None = None
     gasComposition: dict[str, float] | None = None
     limits: QualityLimitsDTO | None = None
+    # Explicit, versioned requirement set selected from the catalog (OPZ §21, MVP #7).
+    # Takes precedence over `limits` when provided.
+    requirementSetId: str | None = None
+
+
+class QualityRequirementSetDTO(BaseModel):
+    code: str
+    name: str
+    version: str
+    application: str
+    geography: str
+    referenceDocument: str
+    referencePair: str
+    wobbeMin: float
+    wobbeMax: float
+    grossCvMin: float
+    status: str
+    source: str
 
 
 class ConditioningProposalDTO(BaseModel):
@@ -175,6 +193,8 @@ class QualityResponse(BaseModel):
     relativeDensity: float
     violations: list[str]
     proposal: ConditioningProposalDTO | None = None
+    # Which requirement set was applied (explicit provenance, §14 comparability).
+    requirementSet: str = "domyślny grupa E (wbudowany)"
 
 
 # ----- storage: CAES -----------------------------------------------------------

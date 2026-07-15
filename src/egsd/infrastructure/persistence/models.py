@@ -88,6 +88,30 @@ class BlendRecipeRow(Base):
     __table_args__ = (UniqueConstraint("code", "version", name="uq_recipe_code_version"),)
 
 
+class QualityRequirementSetRow(Base):
+    """A versioned, explicitly selectable gas-quality requirement set (OPZ §21, MVP #7).
+
+    Thresholds are reference data (never hard-coded in engine logic, §14/ZP-001): each set is
+    identified by document/edition/geography/application and carries its own version and status.
+    """
+
+    __tablename__ = "quality_requirement_sets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(80), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+    application: Mapped[str] = mapped_column(String(80), default="")  # e.g. gaz wysokometanowy E
+    geography: Mapped[str] = mapped_column(String(80), default="")
+    reference_document: Mapped[str] = mapped_column(String(200), default="")
+    reference_pair: Mapped[str] = mapped_column(String(8), default="25/0")
+    wobbe_min_mj_m3: Mapped[float] = mapped_column()
+    wobbe_max_mj_m3: Mapped[float] = mapped_column()
+    gross_cv_min_mj_m3: Mapped[float] = mapped_column()
+    status: Mapped[str] = mapped_column(String(24), default="approved")
+    source: Mapped[str] = mapped_column(String(200), default="")
+
+
 class PriceSeriesRow(Base):
     """Metadata for a market price series (e.g. PL gas TGE, EU ETS)."""
 

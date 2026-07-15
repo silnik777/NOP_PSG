@@ -23,6 +23,7 @@ def init_db() -> None:
     from .device_seed import seed_device_cards
     from .macro_scenario_seed import seed_macro_scenarios
     from .price_seed import seed_price_series
+    from .quality_seed import seed_quality_sets
     from .seed import seed_reference_data
 
     with SessionLocal() as session:
@@ -30,6 +31,7 @@ def init_db() -> None:
         seed_device_cards(session)
         seed_price_series(session)
         seed_macro_scenarios(session)
+        seed_quality_sets(session)
         session.commit()
 
 
