@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
 from .v1 import (
+    auth_routes,
     combustion,
     devices,
     emissions,
@@ -25,6 +26,7 @@ from .v1 import (
     prices,
     projects,
     recipes,
+    reports,
     storage,
     thermo,
 )
@@ -74,4 +76,6 @@ app.include_router(combustion.router)
 app.include_router(merit_order.router)
 app.include_router(mcda.router)
 app.include_router(export.router)
+app.include_router(reports.router)
+app.include_router(auth_routes.router)
 app.include_router(projects.router)

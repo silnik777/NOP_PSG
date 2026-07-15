@@ -17,5 +17,10 @@ class Settings(BaseSettings):
 
     app_title: str = "e-GSD — validated core"
 
+    # Minimal role-based auth (OPZ §37 SEC, ZP-002). Disabled by default so the dev/test
+    # walking skeleton stays open; enable with EGSD_AUTH_ENABLED=true. Corporate SSO
+    # (SAML/OIDC/AD) is the target mechanism pending ZP-002.
+    auth_enabled: bool = False
+
 
 settings = Settings()

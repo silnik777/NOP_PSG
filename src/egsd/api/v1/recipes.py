@@ -25,6 +25,7 @@ from ...infrastructure.persistence.profile_recipe_repository import (
     save_profile,
     save_recipe,
 )
+from ..auth import require_role
 from .common import resolve_composition
 from .schemas import Quantity
 
@@ -60,7 +61,8 @@ class ProfileOut(BaseModel):
     fractions: dict[str, float]
 
 
-@router.post("/profiles", response_model=ProfileOut, status_code=201)
+@router.post("/profiles", response_model=ProfileOut, status_code=201,
+             dependencies=[Depends(require_role("analyst"))])
 def create_profile(body: ProfileIn, session: Session = Depends(get_session)) -> ProfileOut:
     try:
         # Normalize/validate via the domain value object before persisting.
@@ -123,7 +125,8 @@ def _recipe_checksum(streams: list[dict], reference_pair: str) -> str:
     )
 
 
-@router.post("/recipes", response_model=RecipeOut, status_code=201)
+@router.post("/recipes", response_model=RecipeOut, status_code=201,
+             dependencies=[Depends(require_role("analyst"))])
 def create_recipe(body: RecipeIn, session: Session = Depends(get_session)) -> RecipeOut:
     if not body.streams:
         raise HTTPException(status_code=422, detail="A recipe needs at least one stream.")
