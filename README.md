@@ -8,6 +8,9 @@ Moduł I (sprężanie) oraz model danych Projekt/Wariant/Wynik z audytem.
 > 📖 **Nie wiesz, jak to obsługiwać?** Przeczytaj poradnik krok po kroku:
 > [`docs/JAK_UZYWAC.md`](docs/JAK_UZYWAC.md) — uruchomienie, obsługa przez `/docs`
 > (Swagger) i gotowe przykłady do wklejenia.
+>
+> ✅ **Zgodność z OPZ i stan MVP:** [`docs/ZGODNOSC_OPZ.md`](docs/ZGODNOSC_OPZ.md) —
+> macierz 24 elementów MVP, luki do domknięcia i rekomendowana sekwencja przed budową GUI.
 
 ## Architektura
 
