@@ -44,6 +44,50 @@ class ReferenceGasProfileRow(Base):
     fractions: Mapped[dict] = mapped_column(JSON)
 
 
+class CompositionProfileRow(Base):
+    """A user-created, versioned gas composition profile (OPZ §20, MVP #1).
+
+    Distinct from `reference_gas_profiles` (bundled reference data): these are owned,
+    status-tracked profiles created/copied by analysts.
+    """
+
+    __tablename__ = "composition_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(24), default="draft")  # draft|approved|user
+    owner: Mapped[str] = mapped_column(String(128), default="system")
+    source: Mapped[str] = mapped_column(String(200), default="")
+    fractions: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __table_args__ = (UniqueConstraint("code", "version", name="uq_profile_code_version"),)
+
+
+class BlendRecipeRow(Base):
+    """A versioned blend recipe (OPZ §20, MVP #5) — a reproducible mixing definition.
+
+    `streams` is a JSON list of {compositionId?|fractions?, share}. The recipe is immutable
+    per (code, version); editing creates a new version. `config_checksum` fingerprints the
+    inputs so a re-run is verifiably identical.
+    """
+
+    __tablename__ = "blend_recipes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    owner: Mapped[str] = mapped_column(String(128), default="system")
+    streams: Mapped[list] = mapped_column(JSON)
+    reference_pair: Mapped[str] = mapped_column(String(8), default="25/0")
+    config_checksum: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __table_args__ = (UniqueConstraint("code", "version", name="uq_recipe_code_version"),)
+
+
 class PriceSeriesRow(Base):
     """Metadata for a market price series (e.g. PL gas TGE, EU ETS)."""
 

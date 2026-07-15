@@ -24,6 +24,7 @@ from .v1 import (
     merit_order,
     prices,
     projects,
+    recipes,
     storage,
     thermo,
 )
@@ -61,6 +62,7 @@ def health() -> dict:
 
 app.include_router(gas_engine.router)
 app.include_router(gas.router)
+app.include_router(recipes.router)
 app.include_router(thermo.router)
 app.include_router(hydraulics.router)
 app.include_router(devices.router)
