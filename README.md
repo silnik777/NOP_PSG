@@ -5,6 +5,10 @@ systemu dystrybucyjnego gazu (OSD). Ten przyrost dostarcza **matematycznie zwery
 rdzeń** (nie makietę): centralny silnik właściwości gazów (GERG-2008 przez CoolProp),
 Moduł I (sprężanie) oraz model danych Projekt/Wariant/Wynik z audytem.
 
+> 📖 **Nie wiesz, jak to obsługiwać?** Przeczytaj poradnik krok po kroku:
+> [`docs/JAK_UZYWAC.md`](docs/JAK_UZYWAC.md) — uruchomienie, obsługa przez `/docs`
+> (Swagger) i gotowe przykłady do wklejenia.
+
 ## Architektura
 
 Modularny monolit w stylu Clean Architecture / DDD:
