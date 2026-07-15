@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ...application.device_selection_service import (
@@ -12,6 +13,7 @@ from ...application.device_selection_service import (
     reducer_split,
     select,
 )
+from ...application.expander_comparison_service import ExpanderCostModel, compare
 from ...application.thermo_ops import compress_multistage, expand, expand_multistage
 from ...domain.devices.models import MachineRole
 from ...domain.gas.composition import CompositionError
@@ -116,6 +118,95 @@ def select_compressor(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except EngineError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class ExpanderCostModelDTO(BaseModel):
+    specificCapexPlnPerKw: float
+    fixedOpexPctPerYear: float
+    electricityPricePlnPerMwh: float
+    discountRate: float
+    horizonYears: int
+    operatingHoursPerYear: float
+    heaterEfficiency: float = 0.9
+
+
+class ExpanderCompareRequest(DeviceSelectRequest):
+    costModel: ExpanderCostModelDTO | None = None
+
+
+class ExpanderComparisonRowDTO(BaseModel):
+    techId: str
+    name: str
+    category: str
+    feasible: bool
+    reason: str
+    dataQuality: str
+    effectiveEfficiency: float | None = None
+    recoveredPowerKw: float | None = None
+    outletTemperatureK: float | None = None
+    preheatDutyKw: float | None = None
+    coolingPotentialKw: float | None = None
+    capexPln: float | None = None
+    annualOpexPln: float | None = None
+    annualEnergyMwh: float | None = None
+    npvPln: float | None = None
+    lcoePlnPerMwh: float | None = None
+    annualPreheatCo2T: float | None = None
+
+
+class ExpanderComparisonResponse(BaseModel):
+    operatingPoint: dict
+    resultClass: str
+    rows: list[ExpanderComparisonRowDTO]
+
+
+@router.post("/compare-expanders", response_model=ExpanderComparisonResponse)
+def compare_expanders(
+    req: ExpanderCompareRequest, session: Session = Depends(get_session)
+) -> ExpanderComparisonResponse:
+    """EXP-CMP-001/005 — compare all five expansion technology classes at one operating point."""
+    try:
+        comp, mdot, p_in, t_in, p_out = _duty_inputs(req, session)
+        cards = list_device_cards(session, MachineRole.EXPANDER)
+        cost = None
+        if req.costModel is not None:
+            m = req.costModel
+            cost = ExpanderCostModel(
+                specific_capex_pln_per_kw=m.specificCapexPlnPerKw,
+                fixed_opex_pct_per_year=m.fixedOpexPctPerYear,
+                electricity_price_pln_per_mwh=m.electricityPricePlnPerMwh,
+                discount_rate=m.discountRate, horizon_years=m.horizonYears,
+                operating_hours_per_year=m.operatingHoursPerYear,
+                heater_efficiency=m.heaterEfficiency,
+            )
+        rows = compare(_engine.inner, cards, comp, p_in, t_in, p_out, mdot, cost)
+    except (CompositionError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except EngineError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return ExpanderComparisonResponse(
+        operatingPoint={
+            "inletPressureMPa": round(p_in, 4), "outletPressureMPa": round(p_out, 4),
+            "inletTemperatureK": round(t_in, 3), "massFlowKgS": round(mdot, 4),
+            "pressureRatio": round(p_in / p_out, 4),
+        },
+        resultClass="Engineering (family-level cards; EXP-CMP-002/003)",
+        rows=[ExpanderComparisonRowDTO(**_row_dict(r)) for r in rows],
+    )
+
+
+def _row_dict(r) -> dict:
+    return {
+        "techId": r.tech_id, "name": r.name, "category": r.category,
+        "feasible": r.feasible, "reason": r.reason, "dataQuality": r.data_quality,
+        "effectiveEfficiency": r.effective_efficiency, "recoveredPowerKw": r.recovered_power_kw,
+        "outletTemperatureK": r.outlet_temperature_k, "preheatDutyKw": r.preheat_duty_kw,
+        "coolingPotentialKw": r.cooling_potential_kw, "capexPln": r.capex_pln,
+        "annualOpexPln": r.annual_opex_pln, "annualEnergyMwh": r.annual_energy_mwh,
+        "npvPln": r.npv_pln, "lcoePlnPerMwh": r.lcoe_pln_per_mwh,
+        "annualPreheatCo2T": r.annual_preheat_co2_t,
+    }
 
 
 @router.post("/select-expander", response_model=SelectExpanderResponse)

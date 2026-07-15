@@ -67,6 +67,23 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).
 - `POST /api/v1/emissions/footprint` — CoreEmissionEngine: ślad CO₂e Scope 1/2/3
   (GHG Protocol, GWP AR6: CH₄=29,8, H₂=11; wodór szary vs zielony).
+- `POST /api/v1/combustion/emissions` — **CoreCombustionEngine** (§27): CO₂ liczone
+  **ze składu paliwa i bilansu węgla** (nie z pojedynczego współczynnika), zapotrzebowanie
+  O₂/powietrza, skład spalin mokrych i suchych, nadmiar powietrza (λ lub z zadanego O₂ w
+  spalinach suchych), rozdział CO₂ **kopalny/biogeniczny** (FuelOriginProfile), intensywność
+  na Nm³/GJ wejściowy/GJ użyteczny; każdy wynik oznaczony metodą (EMI‑CMB‑013).
+- `POST /api/v1/combustion/compare` — porównanie emisji spalania **przed i po** dodaniu
+  propanu / wodoru / biometanu (EMI‑CMB‑011); dwa niezależne, oznaczone metodą uruchomienia.
+- `POST /api/v1/merit-order` — **CoreMeritOrderEngine** (§29, BEN‑MER): merit order osobno dla
+  energii elektrycznej i ciepła, koszt krańcowy = paliwo + energia pomocnicza + emisje + OPEX
+  zmienny z **dekompozycją składników** (BEN‑MER‑009), **Gatekeeper** blokujący ranking przy
+  niezgodnych jednostkach funkcjonalnych (BEN‑MER‑011 → HTTP 409), obsługa **ujemnych** kosztów
+  krańcowych (BEN‑MER‑006), pełne metadane i suma kontrolna konfiguracji (BEN‑MER‑013).
+- `POST /api/v1/devices/compare-expanders` — porównanie **pięciu klas** technologii ekspansji
+  w jednym punkcie pracy (§25, EXP‑CMP‑001/005): turboekspander, silnik tłokowy, śrubowy,
+  Roots, scroll — moc odzysku, sprawność, temperatura wylotu, podgrzew, potencjał chłodu oraz
+  (opcjonalnie) CAPEX/OPEX/NPV/LCOE i emisje podgrzewu; klasy poza obwiednią oznaczane jako
+  niedopuszczalne bez ekstrapolacji (EXP‑CMP‑003).
 - `POST /api/v1/mcda/rank` — ranking wariantów **TOPSIS** (NPV↑, CAPEX↓, CO₂e↓, TRL↑)
   z **Gatekeeperem porównywalności** (W7.1/W7.2): niezgodne założenia makro → HTTP 409
   z listą rozbieżności.

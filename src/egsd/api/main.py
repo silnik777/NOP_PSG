@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
 from .v1 import (
+    combustion,
     devices,
     emissions,
     export,
@@ -19,6 +20,7 @@ from .v1 import (
     gas_engine,
     hydraulics,
     mcda,
+    merit_order,
     prices,
     projects,
     storage,
@@ -59,6 +61,8 @@ app.include_router(storage.router)
 app.include_router(prices.router)
 app.include_router(finance.router)
 app.include_router(emissions.router)
+app.include_router(combustion.router)
+app.include_router(merit_order.router)
 app.include_router(mcda.router)
 app.include_router(export.router)
 app.include_router(projects.router)
