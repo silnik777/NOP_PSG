@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
@@ -53,8 +55,8 @@ app = FastAPI(
 
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
-    """Root has no page — send browsers to the interactive API docs."""
-    return RedirectResponse(url="/docs")
+    """Send browsers to the web GUI."""
+    return RedirectResponse(url="/app/")
 
 
 @app.get("/health", tags=["meta"])
@@ -79,3 +81,7 @@ app.include_router(export.router)
 app.include_router(reports.router)
 app.include_router(auth_routes.router)
 app.include_router(projects.router)
+
+# Served web GUI (vanilla JS, no build step) — consumes the API above (OPZ B.3).
+_STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/app", StaticFiles(directory=_STATIC_DIR, html=True), name="gui")

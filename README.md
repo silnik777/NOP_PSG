@@ -31,9 +31,17 @@ zostać wydzielony jako niezależna usługa.
 
 ```bash
 pip install -e ".[dev]"
-uvicorn egsd.api.main:app --reload      # http://127.0.0.1:8000/docs
+uvicorn egsd.api.main:app --reload      # GUI: http://127.0.0.1:8000/app/  · API: /docs
 pytest                                  # testy, w tym TV-M1-001
 ```
+
+### Interfejs webowy (GUI)
+
+Pod adresem **`/app/`** dostępne jest klikalne GUI (serwowane przez backend, bez build‑stepu —
+czysty HTML/JS, cała logika obliczeniowa po stronie serwera zgodnie z OPZ B.3). Ekrany
+odwzorowują łańcuch OPZ: pulpit, profile i mieszaniny, jakość + propan, spalanie i emisje,
+technologie ekspansji, ekonomika (DCF), merit order, ceny i prognozy, raport techniczny.
+Adres główny `/` przekierowuje do GUI; interaktywna dokumentacja API pozostaje pod `/docs`.
 
 Domyślnie baza to plik SQLite (`EGSD_DATABASE_URL` nieustawione). Schemat tworzony jest
 automatycznie przy starcie (tryb dev).

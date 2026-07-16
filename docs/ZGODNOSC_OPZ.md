@@ -88,7 +88,7 @@ backendu **wszystkie 24 elementy MVP są zrealizowane**; do pełnego wdrożenia 
 | Obszar (OPZ) | Status | Uwaga |
 |--------------|:------:|-------|
 | **SEC — bezpieczeństwo/uwierzytelnianie/role** (§37, ZP‑002) | 🟡 | Minimalny mechanizm token→rola z hierarchią ról §10 (`/auth/whoami`, guard ≥ analityk na zapisie), domyślnie wyłączony (`EGSD_AUTH_ENABLED`). Docelowo SSO SAML/OIDC/AD (ZP‑002). |
-| **UX — interfejs użytkownika** (§32) | ❌ | Brak GUI; obsługa tylko przez Swagger `/docs`. To przedmiot następnego etapu. |
+| **UX — interfejs użytkownika** (§32) | 🟡 | Serwowane GUI pod `/app/` (HTML/JS bez build‑stepu) obejmujące łańcuch OPZ: profile/mieszanie, jakość+propan, spalanie, ekspandery, ekonomika, merit order, ceny+wykres, raport. Pełny UX (role w UI, i18n, dostępność) — do rozwinięcia. |
 | **AUD — audyt** (§38) | ✅ | Podstawowy ślad audytowy i niezmienność wyników historycznych. |
 | **VAL — walidacja** (§39) | ✅ | Testy jednostkowe/integracyjne/odtwarzalności; zwalidowane wartości fizyczne. |
 | **API — kontrakty** (§35) | ✅ | Udokumentowane OpenAPI (`/openapi.json`, `/docs`). |

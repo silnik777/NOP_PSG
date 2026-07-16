@@ -33,6 +33,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# Ship the served web GUI (HTML/CSS/JS) inside the package.
+egsd = ["api/static/*.html", "api/static/*.css", "api/static/*.js"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
