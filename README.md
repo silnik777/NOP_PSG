@@ -5,6 +5,13 @@ systemu dystrybucyjnego gazu (OSD). Ten przyrost dostarcza **matematycznie zwery
 rdzeń** (nie makietę): centralny silnik właściwości gazów (GERG-2008 przez CoolProp),
 Moduł I (sprężanie) oraz model danych Projekt/Wariant/Wynik z audytem.
 
+> 📖 **Nie wiesz, jak to obsługiwać?** Przeczytaj poradnik krok po kroku:
+> [`docs/JAK_UZYWAC.md`](docs/JAK_UZYWAC.md) — uruchomienie, obsługa przez `/docs`
+> (Swagger) i gotowe przykłady do wklejenia.
+>
+> ✅ **Zgodność z OPZ i stan MVP:** [`docs/ZGODNOSC_OPZ.md`](docs/ZGODNOSC_OPZ.md) —
+> macierz 24 elementów MVP, luki do domknięcia i rekomendowana sekwencja przed budową GUI.
+
 ## Architektura
 
 Modularny monolit w stylu Clean Architecture / DDD:
@@ -24,9 +31,17 @@ zostać wydzielony jako niezależna usługa.
 
 ```bash
 pip install -e ".[dev]"
-uvicorn egsd.api.main:app --reload      # http://127.0.0.1:8000/docs
+uvicorn egsd.api.main:app --reload      # GUI: http://127.0.0.1:8000/app/  · API: /docs
 pytest                                  # testy, w tym TV-M1-001
 ```
+
+### Interfejs webowy (GUI)
+
+Pod adresem **`/app/`** dostępne jest klikalne GUI (serwowane przez backend, bez build‑stepu —
+czysty HTML/JS, cała logika obliczeniowa po stronie serwera zgodnie z OPZ B.3). Ekrany
+odwzorowują łańcuch OPZ: pulpit, profile i mieszaniny, jakość + propan, spalanie i emisje,
+technologie ekspansji, ekonomika (DCF), merit order, ceny i prognozy, raport techniczny.
+Adres główny `/` przekierowuje do GUI; interaktywna dokumentacja API pozostaje pod `/docs`.
 
 Domyślnie baza to plik SQLite (`EGSD_DATABASE_URL` nieustawione). Schemat tworzony jest
 automatycznie przy starcie (tryb dev).
@@ -67,6 +82,23 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).
 - `POST /api/v1/emissions/footprint` — CoreEmissionEngine: ślad CO₂e Scope 1/2/3
   (GHG Protocol, GWP AR6: CH₄=29,8, H₂=11; wodór szary vs zielony).
+- `POST /api/v1/combustion/emissions` — **CoreCombustionEngine** (§27): CO₂ liczone
+  **ze składu paliwa i bilansu węgla** (nie z pojedynczego współczynnika), zapotrzebowanie
+  O₂/powietrza, skład spalin mokrych i suchych, nadmiar powietrza (λ lub z zadanego O₂ w
+  spalinach suchych), rozdział CO₂ **kopalny/biogeniczny** (FuelOriginProfile), intensywność
+  na Nm³/GJ wejściowy/GJ użyteczny; każdy wynik oznaczony metodą (EMI‑CMB‑013).
+- `POST /api/v1/combustion/compare` — porównanie emisji spalania **przed i po** dodaniu
+  propanu / wodoru / biometanu (EMI‑CMB‑011); dwa niezależne, oznaczone metodą uruchomienia.
+- `POST /api/v1/merit-order` — **CoreMeritOrderEngine** (§29, BEN‑MER): merit order osobno dla
+  energii elektrycznej i ciepła, koszt krańcowy = paliwo + energia pomocnicza + emisje + OPEX
+  zmienny z **dekompozycją składników** (BEN‑MER‑009), **Gatekeeper** blokujący ranking przy
+  niezgodnych jednostkach funkcjonalnych (BEN‑MER‑011 → HTTP 409), obsługa **ujemnych** kosztów
+  krańcowych (BEN‑MER‑006), pełne metadane i suma kontrolna konfiguracji (BEN‑MER‑013).
+- `POST /api/v1/devices/compare-expanders` — porównanie **pięciu klas** technologii ekspansji
+  w jednym punkcie pracy (§25, EXP‑CMP‑001/005): turboekspander, silnik tłokowy, śrubowy,
+  Roots, scroll — moc odzysku, sprawność, temperatura wylotu, podgrzew, potencjał chłodu oraz
+  (opcjonalnie) CAPEX/OPEX/NPV/LCOE i emisje podgrzewu; klasy poza obwiednią oznaczane jako
+  niedopuszczalne bez ekstrapolacji (EXP‑CMP‑003).
 - `POST /api/v1/mcda/rank` — ranking wariantów **TOPSIS** (NPV↑, CAPEX↓, CO₂e↓, TRL↑)
   z **Gatekeeperem porównywalności** (W7.1/W7.2): niezgodne założenia makro → HTTP 409
   z listą rozbieżności.

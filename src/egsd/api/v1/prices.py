@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ...application.price_service import analyze_trend, build_report_scenario, build_scenario
-from ...infrastructure.charts.svg import line_chart
+from ...application.price_service import (
+    analyze_trend,
+    build_forecast,
+    build_report_scenario,
+    build_scenario,
+    resolve_start_point,
+)
+from ...domain.prices.models import AggregationMethod, StartPointMode
+from ...infrastructure.charts.svg import history_forecast_chart, line_chart
 from ...infrastructure.persistence.database import get_session
 from ...infrastructure.persistence.price_repository import (
     list_macro_scenarios,
@@ -146,5 +154,147 @@ def chart(
         s.name, labels,
         [("Cena", values, "#4c9be8"), ("Śr. 4-tyg.", ma, "#f0a35e")],
         unit=s.unit,
+    )
+    return Response(content=svg, media_type="image/svg+xml")
+
+
+# ----- Start point (4 modes, §30.3) + combined history/forecast (PRC) ----------
+
+
+class StartPointRequest(BaseModel):
+    mode: str = Field("current", description="current | user_date | user_value | index")
+    windowDays: int = Field(30, ge=1, le=365)
+    aggregation: str = Field("mean", description="mean | volume_weighted | median | last")
+    referenceDate: str | None = None  # ISO date (mode user_date)
+    userValue: float | None = None  # mode user_value
+    userNote: str | None = None
+    indexCode: str | None = None  # mode index — reference series code
+    indexFactor: float = 1.0
+    indexOffset: float = 0.0
+
+
+class StartPointResponse(BaseModel):
+    value: float
+    unit: str
+    mode: str
+    method: str
+    referenceDate: str
+    windowDays: int | None
+    observationsUsed: int
+    observationDates: list[str]
+    source: str
+    warnings: list[str]
+
+
+def _resolve_mode(mode: str) -> StartPointMode:
+    try:
+        return StartPointMode(mode)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown start-point mode {mode!r}; "
+            "choose current | user_date | user_value | index.",
+        ) from exc
+
+
+def _resolve_start_point(code: str, req: StartPointRequest, session: Session):
+    s = _load_or_404(code, session)
+    mode = _resolve_mode(req.mode)
+    try:
+        aggregation = AggregationMethod(req.aggregation)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Unknown aggregation {req.aggregation!r}.") \
+            from exc
+    index_series = None
+    if mode is StartPointMode.INDEX:
+        if not req.indexCode:
+            raise HTTPException(status_code=422, detail="mode 'index' requires indexCode.")
+        index_series = _load_or_404(req.indexCode, session)
+    try:
+        sp = resolve_start_point(
+            s, mode, window_days=req.windowDays, aggregation=aggregation,
+            reference_date=req.referenceDate, user_value=req.userValue,
+            user_note=req.userNote, index_series=index_series,
+            index_factor=req.indexFactor, index_offset=req.indexOffset,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return s, sp
+
+
+@router.post("/{code}/start-point", response_model=StartPointResponse)
+def start_point(
+    code: str, req: StartPointRequest, session: Session = Depends(get_session)
+) -> StartPointResponse:
+    s, sp = _resolve_start_point(code, req, session)
+    return StartPointResponse(
+        value=sp.value, unit=s.unit, mode=sp.mode, method=sp.method,
+        referenceDate=sp.reference_date, windowDays=sp.window_days,
+        observationsUsed=sp.observations_used, observationDates=sp.observation_dates,
+        source=sp.source, warnings=list(sp.warnings),
+    )
+
+
+class ForecastRequest(StartPointRequest):
+    horizonYears: int = Field(5, ge=1, le=50)
+    startYear: int | None = None
+
+
+class ForecastResponse(BaseModel):
+    seriesCode: str
+    unit: str
+    startPoint: StartPointResponse
+    boundaryDate: str
+    annualizedReturn: float
+    history: list[PricePointDTO]
+    forecast: list[ScenarioBandDTO]
+    notes: list[str]
+
+
+@router.post("/{code}/forecast", response_model=ForecastResponse)
+def forecast(
+    code: str, req: ForecastRequest, session: Session = Depends(get_session)
+) -> ForecastResponse:
+    """Observed history joined to a forward low/base/high path from the chosen start point,
+    with an explicit history→forecast boundary (MVP #16–20, PRC-001/002/003)."""
+    s, sp = _resolve_start_point(code, req, session)
+    fc = build_forecast(s, sp, req.horizonYears, req.startYear)
+    return ForecastResponse(
+        seriesCode=fc.series_code, unit=fc.unit,
+        startPoint=StartPointResponse(
+            value=sp.value, unit=s.unit, mode=sp.mode, method=sp.method,
+            referenceDate=sp.reference_date, windowDays=sp.window_days,
+            observationsUsed=sp.observations_used, observationDates=sp.observation_dates,
+            source=sp.source, warnings=list(sp.warnings),
+        ),
+        boundaryDate=fc.boundary_date, annualizedReturn=round(fc.annualized_return, 6),
+        history=[_point(p) for p in fc.history],
+        forecast=[
+            ScenarioBandDTO(year=b.year, low=b.low, base=b.base, high=b.high) for b in fc.bands
+        ],
+        notes=fc.notes,
+    )
+
+
+@router.get("/{code}/forecast-chart.svg")
+def forecast_chart(
+    code: str,
+    mode: str = Query("current"),
+    windowDays: int = Query(30, ge=1, le=365),
+    aggregation: str = Query("mean"),
+    horizon: int = Query(5, ge=1, le=50),
+    weeks: int = Query(26, ge=2, le=520),
+    session: Session = Depends(get_session),
+) -> Response:
+    """Chart joining recent history and the forward band, with the transition boundary."""
+    req = ForecastRequest(
+        mode=mode, windowDays=windowDays, aggregation=aggregation, horizonYears=horizon
+    )
+    s, sp = _resolve_start_point(code, req, session)
+    fc = build_forecast(s, sp, horizon)
+    hist = [(p.observed_on[5:], p.value) for p in s.points[-weeks:]]
+    forecast_rows = [(str(b.year), b.low, b.base, b.high) for b in fc.bands]
+    svg = history_forecast_chart(
+        f"{s.name} — historia i prognoza", hist, forecast_rows, unit=s.unit
     )
     return Response(content=svg, media_type="image/svg+xml")

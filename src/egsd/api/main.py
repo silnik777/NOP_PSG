@@ -5,12 +5,17 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
 from .v1 import (
+    auth_routes,
+    combustion,
     devices,
     emissions,
     export,
@@ -19,8 +24,11 @@ from .v1 import (
     gas_engine,
     hydraulics,
     mcda,
+    merit_order,
     prices,
     projects,
+    recipes,
+    reports,
     storage,
     thermo,
 )
@@ -45,6 +53,12 @@ app = FastAPI(
 )
 
 
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Send browsers to the web GUI."""
+    return RedirectResponse(url="/app/")
+
+
 @app.get("/health", tags=["meta"])
 def health() -> dict:
     return {"status": "ok", "engineVersion": gas_engine._engine.engine_version}
@@ -52,6 +66,7 @@ def health() -> dict:
 
 app.include_router(gas_engine.router)
 app.include_router(gas.router)
+app.include_router(recipes.router)
 app.include_router(thermo.router)
 app.include_router(hydraulics.router)
 app.include_router(devices.router)
@@ -59,6 +74,14 @@ app.include_router(storage.router)
 app.include_router(prices.router)
 app.include_router(finance.router)
 app.include_router(emissions.router)
+app.include_router(combustion.router)
+app.include_router(merit_order.router)
 app.include_router(mcda.router)
 app.include_router(export.router)
+app.include_router(reports.router)
+app.include_router(auth_routes.router)
 app.include_router(projects.router)
+
+# Served web GUI (vanilla JS, no build step) — consumes the API above (OPZ B.3).
+_STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/app", StaticFiles(directory=_STATIC_DIR, html=True), name="gui")
