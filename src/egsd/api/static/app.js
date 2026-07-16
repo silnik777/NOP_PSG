@@ -3,6 +3,7 @@
 // libraries. All heavy computation stays on the server (OPZ B.3).
 
 const API = "/api/v1";
+let authToken = localStorage.getItem("egsd_token") || "";
 
 // ---------- tiny helpers ------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -33,6 +34,7 @@ function toast(msg) {
 }
 async function api(path, { method = "GET", body } = {}) {
   const opt = { method, headers: {} };
+  if (authToken) opt.headers["Authorization"] = "Bearer " + authToken;
   if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
   const res = await fetch(API + path, opt);
   const text = await res.text();
@@ -462,8 +464,114 @@ screens.report = {
   },
 };
 
+// 9. Projekty i warianty --------------------------------------------------------
+screens.projects = {
+  title: "Projekty i warianty", icon: "🗂️", step: "Start",
+  sub: "Kontenery inicjatyw oceny: projekt → warianty → wyniki. Wyniki są niezmienne i identyfikowane sumą kontrolną. Tworzenie wymaga roli ≥ analityk.",
+  async render(root) {
+    const p1 = el("div", { class: "panel" }, el("h2", {}, "Nowy projekt"));
+    const name = el("input", { value: "Projekt oceny B+R" });
+    const org = el("input", { value: "Dział rozwoju" });
+    const variants = el("input", { value: "Wariant bazowy, Wariant z odzyskiem energii", placeholder: "warianty po przecinku" });
+    p1.append(el("div", { class: "grid" }, field("Nazwa projektu", name), field("Jednostka organizacyjna", org)),
+      field("Warianty (po przecinku)", variants));
+    const out1 = el("div", {});
+    const btn = el("button", { class: "btn" }, "Utwórz projekt");
+    btn.addEventListener("click", () => withBusy(btn, async () => {
+      const vlist = variants.value.split(",").map((s) => s.trim()).filter(Boolean).map((n) => ({ name: n }));
+      try {
+        await api("/projects", { method: "POST", body: { name: name.value, orgUnit: org.value, variants: vlist } });
+        out1.replaceChildren(el("span", { class: "badge ok" }, "utworzono projekt"));
+        loadList();
+      } catch (e) {
+        if (e.status === 401 || e.status === 403) out1.replaceChildren(el("div", { class: "warnbox" }, "Brak uprawnień: zaloguj się jako analityk (przycisk „Zaloguj” u góry). " + e.message));
+        else throw e;
+      }
+    }));
+    p1.append(el("div", { class: "actions" }, btn, out1));
+    root.appendChild(p1);
+
+    const p2 = el("div", { class: "panel" }, el("h2", {}, "Projekty"));
+    const listWrap = el("div", { class: "muted" }, "…");
+    p2.appendChild(listWrap);
+    root.appendChild(p2);
+
+    async function loadList() {
+      try {
+        const rows = await api("/projects");
+        if (!rows.length) { listWrap.replaceChildren(el("div", { class: "muted" }, "Brak projektów.")); return; }
+        const cards = rows.map((pr) => {
+          const vrows = pr.variants.map((v) => ({
+            wariant: v.name, status: v.status, wyniki: v.results.length,
+          }));
+          return el("div", { class: "panel", style: "padding:.7rem" },
+            el("div", { class: "rowline" }, el("strong", {}, `#${pr.id} ${pr.name}`), el("span", { class: "pill" }, pr.orgUnit || "—")),
+            pr.variants.length
+              ? dataTable(["wariant", "status", "wyniki"], vrows, ["wariant", "status"])
+              : el("div", { class: "muted" }, "Brak wariantów."));
+        });
+        listWrap.replaceChildren(...cards);
+      } catch (e) { listWrap.replaceChildren(el("div", { class: "muted" }, "Nie udało się pobrać: " + e.message)); }
+    }
+    loadList();
+  },
+};
+
+// ---------- auth UI -----------------------------------------------------------
+const DEV_TOKENS = [
+  { token: "dev-viewer", label: "użytkownik (viewer)" },
+  { token: "dev-analyst", label: "analityk" },
+  { token: "dev-approver", label: "zatwierdzający" },
+  { token: "dev-admin", label: "administrator" },
+];
+async function renderAuth() {
+  const area = $("#auth-area");
+  let who = null;
+  try { who = await api("/auth/whoami"); } catch { who = null; }
+  area.replaceChildren();
+  if (who && !who.authEnabled) {
+    area.appendChild(el("span", { class: "who muted" }, "tryb dev (bez logowania)"));
+    return;
+  }
+  if (who && who.username && who.username !== "anonymous") {
+    area.append(
+      el("span", { class: "who" }, "użytkownik: ", el("b", {}, `${who.username} · ${who.role}`)),
+      el("button", { class: "btn secondary", onclick: () => { authToken = ""; localStorage.removeItem("egsd_token"); refreshAll(); } }, "Wyloguj"),
+    );
+  } else {
+    area.appendChild(el("button", { class: "btn", onclick: loginModal }, "Zaloguj"));
+  }
+}
+function loginModal() {
+  const tokenInput = el("input", { placeholder: "token dostępu", value: "dev-analyst" });
+  const sel = el("select", {}, el("option", { value: "" }, "— wybierz przykładowy token —"),
+    ...DEV_TOKENS.map((t) => el("option", { value: t.token }, t.label)));
+  sel.addEventListener("change", () => { if (sel.value) tokenInput.value = sel.value; });
+  const back = el("div", { class: "modal-back" });
+  const close = () => back.remove();
+  const modal = el("div", { class: "modal" },
+    el("h2", {}, "Logowanie"),
+    el("p", { class: "muted" }, "Podaj token dostępu. W trybie demonstracyjnym dostępne są tokeny ról (docelowo SSO korporacyjne)."),
+    field("Rola przykładowa", sel), field("Token", tokenInput),
+    el("div", { class: "actions" },
+      el("button", { class: "btn", onclick: async () => {
+        authToken = tokenInput.value.trim();
+        try {
+          const who = await api("/auth/whoami");
+          if (who.authEnabled === false) toast("Uwierzytelnianie wyłączone na serwerze (tryb dev).");
+          if (who.username === "anonymous") throw new Error("token nieuznany");
+          localStorage.setItem("egsd_token", authToken); close(); refreshAll();
+        } catch (e) { authToken = ""; toast("Logowanie nieudane: " + e.message); }
+      } }, "Zaloguj"),
+      el("button", { class: "btn secondary", onclick: close }, "Anuluj")));
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.appendChild(modal);
+  document.body.appendChild(back);
+}
+function refreshAll() { renderAuth(); route(); }
+
 // ---------- shell / router ----------------------------------------------------
-const NAV_ORDER = ["start", "profiles", "quality", "combustion", "expanders", "finance", "merit", "prices", "report"];
+const NAV_ORDER = ["start", "projects", "profiles", "quality", "combustion", "expanders", "finance", "merit", "prices", "report"];
 function buildNav() {
   const nav = $("#nav");
   let lastStep = null;
@@ -488,6 +596,7 @@ async function route() {
 async function boot() {
   buildNav();
   window.addEventListener("hashchange", route);
+  await renderAuth();
   await route();
   try {
     const h = await fetch("/health").then((r) => r.json());

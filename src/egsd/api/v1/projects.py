@@ -16,6 +16,7 @@ from ...infrastructure.persistence.models import (
     ResultRecordRow,
     VariantRow,
 )
+from ..auth import require_role
 
 router = APIRouter(prefix="/api/v1", tags=["projects"])
 
@@ -30,10 +31,18 @@ class ProjectIn(BaseModel):
     variants: list[VariantIn] = []
 
 
+class ResultBrief(BaseModel):
+    id: int
+    module: str
+    resultClass: str
+    recordHash: str
+
+
 class VariantOut(BaseModel):
     id: int
     name: str
     status: str
+    results: list[ResultBrief] = []
 
 
 class ProjectOut(BaseModel):
@@ -63,7 +72,19 @@ def _to_out(project: ProjectRow) -> ProjectOut:
         id=project.id,
         name=project.name,
         orgUnit=project.org_unit,
-        variants=[VariantOut(id=v.id, name=v.name, status=v.status) for v in project.variants],
+        variants=[
+            VariantOut(
+                id=v.id, name=v.name, status=v.status,
+                results=[
+                    ResultBrief(
+                        id=r.id, module=r.module, resultClass=r.result_class,
+                        recordHash=r.record_hash,
+                    )
+                    for r in v.results
+                ],
+            )
+            for v in project.variants
+        ],
     )
 
 
@@ -76,7 +97,14 @@ def list_reference_profiles(session: Session = Depends(get_session)) -> list[dic
     ]
 
 
-@router.post("/projects", response_model=ProjectOut, status_code=201)
+@router.get("/projects", response_model=list[ProjectOut])
+def list_projects(session: Session = Depends(get_session)) -> list[ProjectOut]:
+    projects = session.scalars(select(ProjectRow).order_by(ProjectRow.id.desc())).all()
+    return [_to_out(p) for p in projects]
+
+
+@router.post("/projects", response_model=ProjectOut, status_code=201,
+             dependencies=[Depends(require_role("analyst"))])
 def create_project(body: ProjectIn, session: Session = Depends(get_session)) -> ProjectOut:
     project = ProjectRow(name=body.name, org_unit=body.orgUnit)
     project.variants = [VariantRow(name=v.name) for v in body.variants]

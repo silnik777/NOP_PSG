@@ -99,6 +99,13 @@ table.data td.txt, table.data th.txt { text-align: left; }
   position: fixed; bottom: 1rem; right: 1rem; background: var(--err); color: #fff;
   padding: .6rem .9rem; border-radius: 8px; max-width: 360px; z-index: 50; box-shadow: 0 4px 16px rgba(0,0,0,.25);
 }
+.auth { display: inline-flex; align-items: center; gap: .5rem; }
+.auth .who { font-size: .8rem; }
+.auth .who b { color: var(--accent); }
+.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 60; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; width: min(420px, 92vw); }
+.modal h2 { margin: 0 0 .6rem; font-size: 1.05rem; }
+.roleflag { display: inline-block; min-width: 1.4rem; text-align: center; }
 .streamrow { display: grid; grid-template-columns: 1fr 90px 32px; gap: .5rem; margin-bottom: .5rem; align-items: end; }
 .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
