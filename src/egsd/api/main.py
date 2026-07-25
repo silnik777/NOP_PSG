@@ -19,8 +19,10 @@ from .v1 import (
     gas_engine,
     hydraulics,
     mcda,
+    outflow,
     prices,
     projects,
+    reduction,
     storage,
     thermo,
 )
@@ -54,6 +56,8 @@ app.include_router(gas_engine.router)
 app.include_router(gas.router)
 app.include_router(thermo.router)
 app.include_router(hydraulics.router)
+app.include_router(reduction.router)
+app.include_router(outflow.router)
 app.include_router(devices.router)
 app.include_router(storage.router)
 app.include_router(prices.router)

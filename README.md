@@ -70,6 +70,14 @@ docker compose up --build               # app na :8000, Postgres na :5432
 - `POST /api/v1/mcda/rank` — ranking wariantów **TOPSIS** (NPV↑, CAPEX↓, CO₂e↓, TRL↑)
   z **Gatekeeperem porównywalności** (W7.1/W7.2): niezgodne założenia makro → HTTP 409
   z listą rozbieżności.
+- `POST /api/v1/reduction/station` — **Moduł III (MRC)**: dławienie izentalpowe (Joule-Thomson)
+  z doborem podgrzewu do strażnika hydratowego, alternatywa turboekspandera (odzysk mocy
+  + wymagany podgrzew), ścieżka p-T na tle **krzywej rosy** (obwiednia fazowa z silnika)
+  z marginesem do strefy dwufazowej.
+- `POST /api/v1/outflow/blowdown` — **Moduł IV**: wypływ awaryjny — przepływ krytyczny
+  (dławiony) i podkrytyczny przez otwór + dynamiczne opróżnianie pojemnościowe (metoda
+  odcinków skupionych). KPI: masa CH₄/H₂ [t], czas do ciśnienia atmosferycznego [min],
+  **Scope 1 CO₂e** (integracja z CoreEmissionEngine). CFD/dyspersja 3D poza zakresem (wg OPZ).
 - `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
   inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
 - `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).

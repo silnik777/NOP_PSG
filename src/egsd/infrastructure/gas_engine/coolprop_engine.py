@@ -137,6 +137,27 @@ class CoolPropGasEngine:
                 f"Failed to resolve state at p={pressure_mpa} MPa, T={temperature_k} K: {exc}"
             ) from exc
 
+    def phase_envelope(
+        self, composition: GasComposition, p_max_mpa: float = 35.0
+    ) -> list[tuple[float, float]] | None:
+        """Two-phase boundary as (T [K], p [MPa]) points, or None when the trace fails.
+
+        Uses CoolProp's HEOS phase-envelope construction; numerically fragile for some
+        compositions, so callers must treat None as 'margin unknown', never as 'safe'.
+        """
+        st = self._state(composition)
+        try:
+            st.build_phase_envelope("")
+            data = st.get_phase_envelope_data()
+        except Exception:  # noqa: BLE001 — envelope tracing is best-effort by design
+            return None
+        points = [
+            (t, p / 1e6)
+            for t, p in zip(data.T, data.p, strict=False)
+            if t == t and p == p and 0.0 < p / 1e6 <= p_max_mpa
+        ]
+        return points or None
+
     @staticmethod
     def _transport(st: AbstractState) -> tuple[float | None, float | None]:
         """Return (dynamic viscosity Pa*s, thermal conductivity W/(m*K)) or None if unavailable.
