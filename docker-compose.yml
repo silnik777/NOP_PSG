@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: egsd
+      POSTGRES_PASSWORD: egsd
+      POSTGRES_DB: egsd
+    ports:
+      - "5432:5432"
+    volumes:
+      - egsd-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U egsd"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      EGSD_DATABASE_URL: postgresql+psycopg://egsd:egsd@db:5432/egsd
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn egsd.api.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  egsd-db:

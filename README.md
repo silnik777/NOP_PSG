@@ -1,0 +1,147 @@
+# e-GSD — zwalidowany rdzeń (walking skeleton)
+
+Webowa platforma wspomagania decyzji strategicznych i oceny projektów B&R dla operatora
+systemu dystrybucyjnego gazu (OSD). Ten przyrost dostarcza **matematycznie zweryfikowany
+rdzeń** (nie makietę): centralny silnik właściwości gazów (GERG-2008 przez CoolProp),
+Moduł I (sprężanie) oraz model danych Projekt/Wariant/Wynik z audytem.
+
+## Architektura
+
+Modularny monolit w stylu Clean Architecture / DDD:
+
+```
+src/egsd/
+  domain/          # encje i reguły domenowe (bez zależności od IO)
+  application/     # przypadki użycia (usługi)
+  infrastructure/  # adapter CoolProp, ISO 6976, persystencja SQLAlchemy
+  api/             # FastAPI, kontrakty (DTO) zgodne z OPZ
+```
+
+Silnik gazowy (`GasPropertyEngine`) jest **bezstanowy** i wymienny — zgodnie z W1.1 może
+zostać wydzielony jako niezależna usługa.
+
+## Uruchomienie (lokalnie, SQLite — bez zależności zewnętrznych)
+
+```bash
+pip install -e ".[dev]"
+uvicorn egsd.api.main:app --reload      # http://127.0.0.1:8000/docs
+pytest                                  # testy, w tym TV-M1-001
+```
+
+## Frontend (React + TypeScript, Vite)
+
+```bash
+cd web && npm install
+npm run dev      # dev-server z proxy do API (http://127.0.0.1:5173)
+npm run build    # web/dist — FastAPI serwuje SPA pod / gdy dist istnieje
+```
+
+Ekrany: panel cen i scenariuszy (wykresy SVG z API + scenariusz raportowy), silnik gazowy,
+blendowanie + kontrola jakości z propozycją propanizacji, Moduły I–IV (sprężanie z doborem
+urządzeń, hydraulika/linepack z eksportem XLSX, stacja redukcyjna z wykresem p-T vs krzywa
+rosy, blowdown z profilem ciśnienia/strumienia), DCF z wykresem tornado, **panel MCDA
+z suwakami wag przeliczającymi ranking TOPSIS na żywo (W7.4)** i komunikatem blokady
+Gatekeepera (409), projekty/warianty ze statusem SION. Flagi `ENGINEERING`/`SCREENING`
+widoczne przy wynikach (ryzyko R-04).
+
+Domyślnie baza to plik SQLite (`EGSD_DATABASE_URL` nieustawione). Schemat tworzony jest
+automatycznie przy starcie (tryb dev).
+
+## Uruchomienie produkcyjne (PostgreSQL + Docker)
+
+```bash
+docker compose up --build               # app na :8000, Postgres na :5432
+```
+
+## Endpointy (v1)
+
+- `POST /api/v1/gas-engine/point-properties` — właściwości termodynamiczne punktu (§2.1 OPZ).
+- `POST /api/v1/gas-engine/combustion` — ciepło spalania i liczba Wobbego (ISO 6976).
+- `POST /api/v1/thermo/compression` — Moduł I: sprężanie (Karta Modułu I).
+- `POST /api/v1/hydraulics/steady-flow` — Moduł II: przepływ ustalony (Colebrook-White).
+- `POST /api/v1/hydraulics/linepack` — Moduł II: pojemność akumulacyjna (linepack).
+- `POST /api/v1/gas/blend` — własna kompozycja z blendowania strumieni (gaz sieciowy +
+  wodór z elektrolizy + SNG z metanizacji) procentowo.
+- `POST /api/v1/gas/quality-check` — ocena jakości vs standard gazu wysokometanowego (grupa E);
+  gdy parametry spadną poniżej normy, proponowana jest **propanizacja** (lub balastowanie N₂).
+- `POST /api/v1/storage/caes` — magazynowanie energii w sprężonym powietrzu (CAES).
+- `POST /api/v1/storage/linepack` — magazyn w linepacku (widok magazynowy).
+- `GET  /api/v1/devices` — katalog technologii sprężarek/ekspanderów (karty urządzeń).
+- `POST /api/v1/devices/select-compressor` — dobór optymalnej sprężarki z bazy.
+- `POST /api/v1/devices/select-expander` — dobór optymalnego ekspandera z bazy.
+- `GET  /api/v1/prices` — lista serii cenowych z **ceną aktualną** (gaz TGE, energia TGE, EU ETS).
+- `GET  /api/v1/prices/{code}/history?weeks=26` — historia (~pół roku wstecz).
+- `GET  /api/v1/prices/{code}/trend` — trend (regresja, zmienność, średnia ruchoma).
+- `GET  /api/v1/prices/scenarios/macro` — lista scenariuszy makro wg raportów (z atrybucją źródła).
+- `GET  /api/v1/prices/{code}/report-scenario?anchor=true` — **scenariusz oparty na raportach**
+  (ARE/PEP2040/KPEiR, Fit-for-55, EU Reference/IEA WEO) low/base/high, zakotwiczony do ceny
+  bieżącej (historia = poziom odniesienia). **Zalecany** dla analiz.
+- `GET  /api/v1/prices/{code}/scenario?startYear=2026&horizon=5` — scenariusz z trendu
+  (fallback/orientacyjny).
+- `GET  /api/v1/prices/{code}/chart.svg` — **wykres** historii (SVG, ~6 mies. + średnia ruchoma).
+- `POST /api/v1/finance/dcf` — DCF: NPV, IRR (Brent), LCOE/LCOH/LCOHeat/LCOS.
+- `POST /api/v1/finance/sensitivity` — analiza wrażliwości ±30% (dane do wykresu tornado, W5.1).
+- `POST /api/v1/emissions/footprint` — CoreEmissionEngine: ślad CO₂e Scope 1/2/3
+  (GHG Protocol, GWP AR6: CH₄=29,8, H₂=11; wodór szary vs zielony).
+- `POST /api/v1/mcda/rank` — ranking wariantów **TOPSIS** (NPV↑, CAPEX↓, CO₂e↓, TRL↑)
+  z **Gatekeeperem porównywalności** (W7.1/W7.2): niezgodne założenia makro → HTTP 409
+  z listą rozbieżności.
+- `POST /api/v1/reduction/station` — **Moduł III (MRC)**: dławienie izentalpowe (Joule-Thomson)
+  z doborem podgrzewu do strażnika hydratowego, alternatywa turboekspandera (odzysk mocy
+  + wymagany podgrzew), ścieżka p-T na tle **krzywej rosy** (obwiednia fazowa z silnika)
+  z marginesem do strefy dwufazowej.
+- `POST /api/v1/outflow/blowdown` — **Moduł IV**: wypływ awaryjny — przepływ krytyczny
+  (dławiony) i podkrytyczny przez otwór + dynamiczne opróżnianie pojemnościowe (metoda
+  odcinków skupionych). KPI: masa CH₄/H₂ [t], czas do ciśnienia atmosferycznego [min],
+  **Scope 1 CO₂e** (integracja z CoreEmissionEngine). CFD/dyspersja 3D poza zakresem (wg OPZ).
+- `POST /api/v1/export/compression` / `POST /api/v1/export/hydraulics` — eksport wyników
+  inżynierskich do CSV/XLSX (`?format=csv|xlsx`).
+- `POST /api/v1/projects` / `GET /api/v1/projects/{id}` — projekty i warianty (skrót).
+
+### Jakość gazu, blendowanie i magazynowanie
+
+- **Składniki:** obsługiwany pełny zestaw GERG-2008 (metan, etan, propan, butany, pentany,
+  heksan, heptan, oktan, N₂, CO₂, H₂, O₂, CO, H₂S, argon, hel, woda) — patrz
+  `COMPONENT_TO_COOLPROP` w `domain/gas/composition.py`.
+- **Własne kompozycje:** `/gas/blend` łączy strumienie (np. gaz sieciowy + H₂ z elektrolizy +
+  SNG z metanizacji) procentowo; profile startowe `REF-STREAM-H2-ELX`, `REF-STREAM-SNG`.
+- **Propanizacja:** `/gas/quality-check` sprawdza Wobbe/ciepło spalania vs limity grupy E i przy
+  spadku poniżej normy wylicza wymagany dodatek propanu (lub azotu przy przekroczeniu górnego
+  limitu Wobbego). Uwaga inżynierska: dla gazu E dodatek H₂ do ~30% utrzymuje Wobbe ≥ 45, ale
+  **ciepło spalania** spada poniżej 34 MJ/m³ — to ono jest wiążącym ograniczeniem.
+- **CAES:** `/storage/caes` — magazynowanie energii w sprężonym powietrzu; sprężanie wielostopniowe
+  z międzychłodzeniem i rozprężanie z dogrzewem (model przesiewowy [SCREENING], sprawność
+  round-trip rzędu 45–50%).
+
+### Dobór technologii maszyn (karty urządzeń)
+
+Zamiast sztywnej sprawności, sprężanie/ekspansja **dobierają technologię z katalogu**
+(`device_cards`, dane referencyjne wersjonowane):
+
+- Technologie: sprężarki **tłokowa / śrubowa / Rootsa / spiralna / odśrodkowa**;
+  ekspandery **turbo / tłokowy / śrubowy** — każda z zakresem sprężu na stopień, sprężem
+  optymalnym, nominalną sprawnością izentropową, zakresem przepływu i limitem temperatury.
+- **Charakterystyka sprawnościowa:** sprawność maleje z oddaleniem od sprężu optymalnego;
+  poza zakresem urządzenie jest odrzucane. Dobór liczy **wymaganą liczbę stopni** i spręż na
+  stopień, ocenia sprawność efektywną i **rankinguje** kandydatów.
+- **Urządzenia pomocnicze:** dla sprężania — chłodnice międzystopniowe i **chłodnica końcowa**
+  (ochrona powłoki gazociągu, dobór źródła: air/water-cooler, z mocą kW); dla ekspansji —
+  **podgrzew wstępny** przy ryzyku hydratów/zamarzania (dobór źródła: gaz/ciepło odpadowe/elektryczny)
+  oraz **reduktor dławiący** ZA maszyną, gdy nie osiąga ciśnienia docelowego.
+
+Przykład (stacja redukcyjna 5→1 MPa, 20 kg/s): dobrany turboekspander, odzysk ~2,7 MW,
+wylot jednostopniowy 207 K → proponowany podgrzew ~3,4 MW.
+
+### Moduł II — Hydraulika (Faza II / MVP)
+
+Pojedynczy odcinek, przepływ ustalony izotermiczny gazu ściśliwego: ogólne równanie
+przepływu z współczynnikiem oporów Darcy'ego z równania **Colebrooka-White'a**, iteracja
+po współczynniku ściśliwości Z (własności z `GasPropertyEngine`), liczba Reynoldsa i reżim
+przepływu, oraz **linepack** = A·L·ρ_śr. Baza odniesienia przepływu przypięta jawnie
+(warunki normalne 0 °C / 101,325 kPa — Nm³). Solver sieci pierścieniowej pozostaje poza
+zakresem tego przyrostu (uwaga weryfikacyjna #3).
+
+## Ważna uwaga walidacyjna
+
+Wartości referencyjne z OPZ dla sprężania (TV-M1-001) okazały się niezgodne z modelem
+real-fluid — patrz `docs/adr/0001-determinism-and-licensing.md` i `tests/integration/test_tv_m1_001.py`.
