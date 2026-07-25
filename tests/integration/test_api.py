@@ -95,8 +95,9 @@ def test_project_variant_result_lifecycle(client):
     hash1 = r1.json()["recordHash"]
     assert hash1.startswith("sha256:")
 
-    # Same inputs+models -> same immutable record (idempotent).
+    # Same inputs+models -> same immutable record (idempotent, 200 not 201).
     r2 = client.post(f"/api/v1/variants/{variant_id}/results", json=payload)
+    assert r2.status_code == 200
     assert r2.json()["recordHash"] == hash1
 
 

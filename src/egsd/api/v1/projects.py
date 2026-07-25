@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -102,7 +102,10 @@ def get_project(project_id: int, session: Session = Depends(get_session)) -> Pro
     "/variants/{variant_id}/results", response_model=ResultRecordOut, status_code=201
 )
 def add_result(
-    variant_id: int, body: ResultRecordIn, session: Session = Depends(get_session)
+    variant_id: int,
+    body: ResultRecordIn,
+    response: Response,
+    session: Session = Depends(get_session),
 ) -> ResultRecordOut:
     variant = session.get(VariantRow, variant_id)
     if variant is None:
@@ -113,7 +116,8 @@ def add_result(
         select(ResultRecordRow).where(ResultRecordRow.record_hash == record_hash)
     )
     if existing is not None:
-        # Immutable & idempotent: identical inputs+models -> same record.
+        # Immutable & idempotent: identical inputs+models -> same record (200, not Created).
+        response.status_code = 200
         return ResultRecordOut(
             id=existing.id, recordHash=existing.record_hash,
             module=existing.module, resultClass=existing.result_class,

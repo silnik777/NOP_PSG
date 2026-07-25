@@ -92,6 +92,7 @@ class HydraulicsService:
 
         friction = 0.0
         reynolds = 0.0
+        converged = False
         p2_pa = 0.90 * p1_pa  # initial guess
         for _ in range(_MAX_ITER):
             p_avg_pa = self._average_pressure(p1_pa, p2_pa)
@@ -117,8 +118,17 @@ class HydraulicsService:
             new_p2 = math.sqrt(rhs)
             if abs(new_p2 - p2_pa) < _P2_TOL_PA:
                 p2_pa = new_p2
+                converged = True
                 break
             p2_pa = new_p2
+
+        if not converged:
+            # OPZ (Część A): operations must be blocked when the solver does not converge —
+            # never silently return the last iterate.
+            raise StateSolveError(
+                f"Hydraulic solver did not converge within {_MAX_ITER} iterations "
+                f"(last outlet-pressure step > {_P2_TOL_PA} Pa). Calculation blocked."
+            )
 
         # Final average-state velocity and Mach number.
         final_state = self._engine.point_properties(
