@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
 from ..infrastructure.persistence.database import init_db
@@ -66,3 +68,8 @@ app.include_router(emissions.router)
 app.include_router(mcda.router)
 app.include_router(export.router)
 app.include_router(projects.router)
+
+# Serve the built React SPA (web/dist) when present; API routes above take precedence.
+_SPA_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+if _SPA_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=_SPA_DIST, html=True), name="spa")

@@ -28,6 +28,22 @@ uvicorn egsd.api.main:app --reload      # http://127.0.0.1:8000/docs
 pytest                                  # testy, w tym TV-M1-001
 ```
 
+## Frontend (React + TypeScript, Vite)
+
+```bash
+cd web && npm install
+npm run dev      # dev-server z proxy do API (http://127.0.0.1:5173)
+npm run build    # web/dist — FastAPI serwuje SPA pod / gdy dist istnieje
+```
+
+Ekrany: panel cen i scenariuszy (wykresy SVG z API + scenariusz raportowy), silnik gazowy,
+blendowanie + kontrola jakości z propozycją propanizacji, Moduły I–IV (sprężanie z doborem
+urządzeń, hydraulika/linepack z eksportem XLSX, stacja redukcyjna z wykresem p-T vs krzywa
+rosy, blowdown z profilem ciśnienia/strumienia), DCF z wykresem tornado, **panel MCDA
+z suwakami wag przeliczającymi ranking TOPSIS na żywo (W7.4)** i komunikatem blokady
+Gatekeepera (409), projekty/warianty ze statusem SION. Flagi `ENGINEERING`/`SCREENING`
+widoczne przy wynikach (ryzyko R-04).
+
 Domyślnie baza to plik SQLite (`EGSD_DATABASE_URL` nieustawione). Schemat tworzony jest
 automatycznie przy starcie (tryb dev).
 
